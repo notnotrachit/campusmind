@@ -1,25 +1,55 @@
 package com.campusmind.app.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 
 private val CampusColors = lightColorScheme(
-  primary = Color(0xFF24584F),
+  primary = Color(0xFF1E5F55),
   onPrimary = Color.White,
-  secondary = Color(0xFF7A5132),
-  tertiary = Color(0xFF4D5F88),
-  background = Color(0xFFF7F7F2),
+  primaryContainer = Color(0xFFCFE9DE),
+  onPrimaryContainer = Color(0xFF0D332E),
+  secondary = Color(0xFF8A4B2D),
+  secondaryContainer = Color(0xFFFFDAC8),
+  tertiary = Color(0xFF465C8C),
+  background = Color(0xFFF6F2EA),
   surface = Color(0xFFFFFFFF),
-  surfaceVariant = Color(0xFFE7EBE3),
-  outline = Color(0xFF7B8278),
+  surfaceVariant = Color(0xFFECE5D8),
+  outline = Color(0xFF77746D),
+  error = Color(0xFFB3261E),
 )
+
+private val CampusShapes = Shapes(
+  extraSmall = RoundedCornerShape(6.dp),
+  small = RoundedCornerShape(8.dp),
+  medium = RoundedCornerShape(8.dp),
+  large = RoundedCornerShape(8.dp),
+  extraLarge = RoundedCornerShape(8.dp),
+)
+
+private val CampusTypography = Typography().run {
+  copy(
+    displayLarge = displayLarge.copy(fontFamily = FontFamily.Serif),
+    displayMedium = displayMedium.copy(fontFamily = FontFamily.Serif),
+    displaySmall = displaySmall.copy(fontFamily = FontFamily.Serif),
+    headlineLarge = headlineLarge.copy(fontFamily = FontFamily.Serif),
+    headlineMedium = headlineMedium.copy(fontFamily = FontFamily.Serif),
+    headlineSmall = headlineSmall.copy(fontFamily = FontFamily.Serif),
+  )
+}
 
 @Composable
 fun CampusTheme(content: @Composable () -> Unit) {
   MaterialTheme(
     colorScheme = CampusColors,
+    typography = CampusTypography,
+    shapes = CampusShapes,
     content = content,
   )
 }

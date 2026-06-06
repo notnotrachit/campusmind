@@ -1,51 +1,30 @@
 package com.campusmind.app.agent
 
-import com.campusmind.app.ai.RuntimeOrchestrator
+import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
-import com.campusmind.app.model.Flashcard
+import com.campusmind.app.model.CAMPUS_MODEL_STATUS
 
 class StudyAgent(
-  private val runtimeOrchestrator: RuntimeOrchestrator? = null,
+  private val modelRunner: SingleModelRunner,
 ) : StudentAgent {
   override val kind = AgentKind.Study
 
   override suspend fun analyze(inputText: String): AgentResult {
-    var fallbackStatus = "Deterministic fallback"
-    runtimeOrchestrator?.generate(studyPrompt(inputText))?.getOrNull()?.let { generation ->
-      AgentJsonParser.parse(kind, generation.text, inputText, generation.runtimeType, generation.statusText)?.let { return it }
-      fallbackStatus = "Deterministic fallback after malformed LLM response from ${generation.runtimeType.name}"
-    }
-
-    val words = inputText.split(Regex("\\s+")).filter { it.length > 4 }
-    val concept = words.firstOrNull() ?: "Topic"
-    val detail = inputText.lineSequence().firstOrNull { it.isNotBlank() }?.take(100) ?: inputText.take(100)
-
-    return AgentResult(
-      kind = kind,
-      summary = "Generated two starter flashcards from the study material.",
-      runtimeStatusText = fallbackStatus,
-      flashcards = listOf(
-        Flashcard(
-          front = "What is the key idea in this note?",
-          back = detail.ifBlank { "Review the source note." },
-          source = inputText.take(140),
-        ),
-        Flashcard(
-          front = "Explain $concept in one line.",
-          back = "Use the source note to connect $concept with the surrounding topic.",
-          source = inputText.take(140),
-        ),
-      ),
-    )
+    return modelRunner.generate(studyPrompt(inputText))
+      .fold(
+        onSuccess = { text ->
+          AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
+            ?: error("Model returned malformed Study JSON")
+        },
+        onFailure = { error -> throw IllegalStateException("Study model failed after retries", error) },
+      )
   }
 
   private fun studyPrompt(inputText: String): String =
     """
-    You are CampusMind's Study agent. Convert the note into JSON only.
-    Schema: {"summary":"short summary","flashcards":[{"front":"question","back":"answer"}]}
-    Create 2 concise flashcards. Do not include markdown.
-    Input:
+    JSON only. Schema {"summary":"short","flashcards":[{"front":"question","back":"answer"}]}.
+    Make 2 concise flashcards.
     $inputText
     """.trimIndent()
 }

@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
           factory = CampusMindViewModelFactory(
             repository = app.repository,
             modelSettingsStore = app.modelSettingsStore,
-            runtimeOrchestrator = app.runtimeOrchestrator,
+            modelDownloadManager = app.modelDownloadManager,
           ),
         )
         CampusMindApp(viewModel = viewModel)

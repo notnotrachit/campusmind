@@ -4,7 +4,6 @@ import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
-import com.campusmind.app.model.RuntimeType
 import com.campusmind.app.model.TaskItem
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -21,8 +20,7 @@ object AgentJsonParser {
     kind: AgentKind,
     rawText: String,
     sourceText: String,
-    runtimeType: RuntimeType,
-    runtimeStatusText: String,
+    modelStatusText: String,
   ): AgentResult? {
     val root = runCatching { json.parseToJsonElement(rawText.extractJsonObject()).jsonObject }.getOrNull() ?: return null
     val summary = root.string("summary") ?: return null
@@ -55,8 +53,7 @@ object AgentJsonParser {
           source = sourceText.take(140),
         )
       },
-      runtimeType = runtimeType,
-      runtimeStatusText = runtimeStatusText,
+      modelStatusText = modelStatusText,
     )
   }
 

@@ -6,6 +6,13 @@ plugins {
   alias(libs.plugins.ksp)
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+  localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def huggingFaceToken = localProperties.getProperty('huggingFaceToken', '')
+
 android {
   namespace 'com.campusmind.app'
   compileSdk 36
@@ -16,7 +23,7 @@ android {
     targetSdk 36
     versionCode 1
     versionName '0.1.0'
-    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    resValue 'string', 'hugging_face_token', huggingFaceToken
   }
 
   buildTypes {
@@ -48,6 +55,7 @@ dependencies {
   implementation platform(libs.androidx.compose.bom)
   implementation libs.androidx.ui
   implementation libs.androidx.ui.graphics
+  implementation libs.androidx.material.icons.extended
   implementation libs.androidx.ui.tooling.preview
   implementation libs.androidx.material3
   implementation libs.androidx.navigation.compose
@@ -57,16 +65,9 @@ dependencies {
   implementation libs.androidx.work.runtime
   implementation libs.androidx.datastore
   implementation libs.litertlm
-  implementation libs.mlkit.genai.prompt
   implementation libs.mlkit.text.recognition
 
   ksp libs.androidx.room.compiler
 
-  testImplementation libs.junit
-  androidTestImplementation libs.androidx.junit
-  androidTestImplementation libs.androidx.espresso.core
-  androidTestImplementation platform(libs.androidx.compose.bom)
-  androidTestImplementation libs.androidx.ui.test.junit4
   debugImplementation libs.androidx.ui.tooling
-  debugImplementation libs.androidx.ui.test.manifest
 }

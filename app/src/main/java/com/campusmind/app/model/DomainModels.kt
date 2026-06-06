@@ -13,22 +13,6 @@ enum class AgentKind {
   Expense,
 }
 
-enum class RuntimeType {
-  AICORE,
-  LITERT_LM,
-  STUB,
-}
-
-enum class AiCoreReleaseStage {
-  STABLE,
-  PREVIEW,
-}
-
-enum class AiCorePreference {
-  FAST,
-  FULL,
-}
-
 data class InboxItem(
   val id: Long = 0,
   val type: InboxType,
@@ -71,19 +55,19 @@ data class AgentResult(
   val tasks: List<TaskItem> = emptyList(),
   val flashcards: List<Flashcard> = emptyList(),
   val expenses: List<ExpenseItem> = emptyList(),
-  val runtimeType: RuntimeType = RuntimeType.STUB,
-  val runtimeStatusText: String = "Deterministic fallback",
+  val modelStatusText: String = "LiteRT-LM",
 )
 
 data class ModelConfig(
   val modelPath: String = "",
-  val backend: String = "GPU",
-  val maxTokens: Int = 512,
+  val modelName: String = CAMPUS_MODEL_NAME,
+  val modelId: String = CAMPUS_MODEL_ID,
+  val modelFile: String = CAMPUS_MODEL_FILE,
+  val commitHash: String = CAMPUS_MODEL_COMMIT,
+  val sizeInBytes: Long = CAMPUS_MODEL_SIZE_BYTES,
+  val backend: String = "CPU",
+  val maxTokens: Int = CAMPUS_MODEL_MAX_TOKENS,
   val temperature: Float = 0.4f,
-  val runtimeType: RuntimeType = RuntimeType.AICORE,
-  val aiCoreReleaseStage: AiCoreReleaseStage = AiCoreReleaseStage.STABLE,
-  val aiCorePreference: AiCorePreference = AiCorePreference.FAST,
   val topK: Int = 40,
-  val maxOutputTokens: Int = 512,
-  val runtimeStatusText: String = "AI Core is the default runtime",
+  val topP: Float = 0.95f,
 )

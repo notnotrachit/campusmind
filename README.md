@@ -8,8 +8,8 @@ CampusMind is a phone-first student productivity assistant for the AgentKit spri
 - Chaos Inbox for student inputs.
 - Three starter agents: Study, Deadline, and Expense.
 - Local Room database for inbox history, tasks, flashcards, expenses, and activity logs.
-- Manual local model configuration for Google AI Edge LiteRT LM.
-- Stubbed agent responses first, with interfaces ready for on-device LLM execution.
+- One on-device LiteRT-LM model: `Gemma-4-E2B-it`.
+- In-app download from the same Hugging Face resolve endpoint shape used by Google AI Edge Gallery.
 
 ## Setup
 
@@ -18,7 +18,7 @@ CampusMind is a phone-first student productivity assistant for the AgentKit spri
 ./gradlew testDebugUnitTest
 ```
 
-The first scaffold does not bundle a model. Use the Model screen to record a local model path on the device once a LiteRT-compatible model is available.
+The app does not bundle the model. Open AI Runtime and download `Gemma-4-E2B-it`; CampusMind stores the `.litertlm` file in app-specific external storage and uses that single model for all agents.
 
 ## Hackathon Positioning
 

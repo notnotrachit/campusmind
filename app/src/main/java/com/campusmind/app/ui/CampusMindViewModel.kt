@@ -3,8 +3,8 @@ package com.campusmind.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.campusmind.app.ai.RuntimeOrchestrator
-import com.campusmind.app.ai.RuntimeState
+import com.campusmind.app.ai.ModelDownloadManager
+import com.campusmind.app.ai.ModelDownloadState
 import com.campusmind.app.data.CampusMindRepository
 import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
@@ -27,13 +27,13 @@ data class CampusMindUiState(
   val expenses: List<ExpenseItem> = emptyList(),
   val logs: List<ActivityLog> = emptyList(),
   val modelConfig: ModelConfig = ModelConfig(),
-  val runtimeState: RuntimeState = RuntimeState(),
+  val modelDownloadState: ModelDownloadState = ModelDownloadState(),
 )
 
 class CampusMindViewModel(
   private val repository: CampusMindRepository,
   private val modelSettingsStore: ModelSettingsStore,
-  private val runtimeOrchestrator: RuntimeOrchestrator,
+  private val modelDownloadManager: ModelDownloadManager,
 ) : ViewModel() {
   private val transient = kotlinx.coroutines.flow.MutableStateFlow(CampusMindUiState())
 
@@ -54,9 +54,12 @@ class CampusMindViewModel(
         )
       },
       modelSettingsStore.config,
-      runtimeOrchestrator.state,
-    ) { current, modelConfig, runtimeState ->
-      current.copy(modelConfig = modelConfig, runtimeState = runtimeState)
+      modelDownloadManager.state,
+    ) { current, modelConfig, modelDownloadState ->
+      current.copy(
+        modelConfig = modelConfig,
+        modelDownloadState = modelDownloadState,
+      )
     }
     .stateIn(
       scope = viewModelScope,
@@ -77,12 +80,20 @@ class CampusMindViewModel(
 
     viewModelScope.launch {
       transient.value = transient.value.copy(isProcessing = true, status = "Routing local agent...")
-      val result = repository.submitText(content)
-      transient.value = transient.value.copy(
-        inputText = "",
-        isProcessing = false,
-        status = result.summary,
-      )
+      runCatching { repository.submitText(content) }
+        .onSuccess { result ->
+          transient.value = transient.value.copy(
+            inputText = "",
+            isProcessing = false,
+            status = result.summary,
+          )
+        }
+        .onFailure { error ->
+          transient.value = transient.value.copy(
+            isProcessing = false,
+            status = "Model run failed: ${error.message ?: error::class.java.simpleName}",
+          )
+        }
     }
   }
 
@@ -92,14 +103,38 @@ class CampusMindViewModel(
       transient.value = transient.value.copy(status = "Model path saved")
     }
   }
+
+  fun downloadModel(url: String) {
+    val trimmedUrl = url.trim()
+    if (trimmedUrl.isBlank()) {
+      transient.value = transient.value.copy(status = "Add a model URL before downloading")
+      return
+    }
+
+    viewModelScope.launch {
+      transient.value = transient.value.copy(status = "Downloading ${uiState.value.modelConfig.modelName}...")
+      val result = modelDownloadManager.download(trimmedUrl, uiState.value.modelConfig.modelFile)
+      result.fold(
+        onSuccess = { path ->
+          modelSettingsStore.save(uiState.value.modelConfig.copy(modelPath = path))
+          transient.value = transient.value.copy(status = "${uiState.value.modelConfig.modelName} downloaded and saved")
+        },
+        onFailure = { error ->
+          transient.value = transient.value.copy(
+            status = "Model download failed: ${error.message ?: error::class.java.simpleName}",
+          )
+        },
+      )
+    }
+  }
 }
 
 class CampusMindViewModelFactory(
   private val repository: CampusMindRepository,
   private val modelSettingsStore: ModelSettingsStore,
-  private val runtimeOrchestrator: RuntimeOrchestrator,
+  private val modelDownloadManager: ModelDownloadManager,
 ) : ViewModelProvider.Factory {
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
-    CampusMindViewModel(repository, modelSettingsStore, runtimeOrchestrator) as T
+    CampusMindViewModel(repository, modelSettingsStore, modelDownloadManager) as T
 }

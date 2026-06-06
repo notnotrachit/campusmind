@@ -1,56 +1,30 @@
 package com.campusmind.app.agent
 
-import com.campusmind.app.ai.RuntimeOrchestrator
+import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
-import com.campusmind.app.model.TaskItem
+import com.campusmind.app.model.CAMPUS_MODEL_STATUS
 
 class DeadlineAgent(
-  private val runtimeOrchestrator: RuntimeOrchestrator? = null,
+  private val modelRunner: SingleModelRunner,
 ) : StudentAgent {
   override val kind = AgentKind.Deadline
 
   override suspend fun analyze(inputText: String): AgentResult {
-    var fallbackStatus = "Deterministic fallback"
-    runtimeOrchestrator?.generate(deadlinePrompt(inputText))?.getOrNull()?.let { generation ->
-      AgentJsonParser.parse(kind, generation.text, inputText, generation.runtimeType, generation.statusText)?.let { return it }
-      fallbackStatus = "Deterministic fallback after malformed LLM response from ${generation.runtimeType.name}"
-    }
-
-    val dueText = extractDueText(inputText)
-    val title = inputText
-      .lineSequence()
-      .firstOrNull { it.isNotBlank() }
-      ?.take(72)
-      ?: "Student deadline"
-
-    return AgentResult(
-      kind = kind,
-      summary = "Created one deadline from the inbox item.",
-      runtimeStatusText = fallbackStatus,
-      tasks = listOf(
-        TaskItem(
-          title = title,
-          dueDateText = dueText,
-          source = inputText.take(140),
-        ),
-      ),
-    )
-  }
-
-  private fun extractDueText(inputText: String): String {
-    val lower = inputText.lowercase()
-    val keywords = listOf("today", "tomorrow", "friday", "monday", "deadline", "submit", "due")
-    return keywords.firstOrNull { lower.contains(it) }?.replaceFirstChar { it.uppercase() }
-      ?: "Review soon"
+    return modelRunner.generate(deadlinePrompt(inputText))
+      .fold(
+        onSuccess = { text ->
+          AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
+            ?: error("Model returned malformed Deadline JSON")
+        },
+        onFailure = { error -> throw IllegalStateException("Deadline model failed after retries", error) },
+      )
   }
 
   private fun deadlinePrompt(inputText: String): String =
     """
-    You are CampusMind's Deadline agent. Convert the student message into JSON only.
-    Schema: {"summary":"short summary","tasks":[{"title":"task title","dueDateText":"due date phrase"}]}
-    Create one task. Use "Review soon" when no due date is present. Do not include markdown.
-    Input:
+    JSON only. Schema {"summary":"short","tasks":[{"title":"task","dueDateText":"due"}]}.
+    Create a task only if there is a real due date. Otherwise return {"summary":"No deadline found","tasks":[]}.
     $inputText
     """.trimIndent()
 }

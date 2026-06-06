@@ -1,57 +1,30 @@
 package com.campusmind.app.agent
 
-import com.campusmind.app.ai.RuntimeOrchestrator
+import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
-import com.campusmind.app.model.ExpenseItem
+import com.campusmind.app.model.CAMPUS_MODEL_STATUS
 
 class ExpenseAgent(
-  private val runtimeOrchestrator: RuntimeOrchestrator? = null,
+  private val modelRunner: SingleModelRunner,
 ) : StudentAgent {
   override val kind = AgentKind.Expense
 
   override suspend fun analyze(inputText: String): AgentResult {
-    var fallbackStatus = "Deterministic fallback"
-    runtimeOrchestrator?.generate(expensePrompt(inputText))?.getOrNull()?.let { generation ->
-      AgentJsonParser.parse(kind, generation.text, inputText, generation.runtimeType, generation.statusText)?.let { return it }
-      fallbackStatus = "Deterministic fallback after malformed LLM response from ${generation.runtimeType.name}"
-    }
-
-    val amount = Regex("""(?:rs\.?|inr|₹)\s?(\d+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
-      .find(inputText)
-      ?.value
-      ?: Regex("""\b\d{2,5}(?:\.\d{1,2})?\b""").find(inputText)?.value
-      ?: "Amount unknown"
-
-    val category = when {
-      inputText.contains("canteen", ignoreCase = true) || inputText.contains("food", ignoreCase = true) -> "Food"
-      inputText.contains("uber", ignoreCase = true) || inputText.contains("metro", ignoreCase = true) -> "Travel"
-      inputText.contains("book", ignoreCase = true) || inputText.contains("print", ignoreCase = true) -> "Academics"
-      else -> "Student spend"
-    }
-
-    val merchant = inputText.lineSequence().firstOrNull { it.isNotBlank() }?.take(48) ?: "Receipt"
-    return AgentResult(
-      kind = kind,
-      summary = "Logged one expense from the inbox item.",
-      runtimeStatusText = fallbackStatus,
-      expenses = listOf(
-        ExpenseItem(
-          amountText = amount,
-          category = category,
-          merchant = merchant,
-          source = inputText.take(140),
-        ),
-      ),
-    )
+    return modelRunner.generate(expensePrompt(inputText))
+      .fold(
+        onSuccess = { text ->
+          AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
+            ?: error("Model returned malformed Expense JSON")
+        },
+        onFailure = { error -> throw IllegalStateException("Expense model failed after retries", error) },
+      )
   }
 
   private fun expensePrompt(inputText: String): String =
     """
-    You are CampusMind's Expense agent. Convert the receipt or payment text into JSON only.
-    Schema: {"summary":"short summary","expenses":[{"amountText":"amount with currency","category":"Food|Travel|Academics|Student spend","merchant":"merchant"}]}
-    Create one expense. Do not include markdown.
-    Input:
+    JSON only. Schema {"summary":"short","expenses":[{"amountText":"amount","category":"Food|Travel|Academics|Student spend","merchant":"merchant"}]}.
+    Create one expense.
     $inputText
     """.trimIndent()
 }

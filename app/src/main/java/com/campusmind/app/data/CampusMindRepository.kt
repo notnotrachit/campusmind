@@ -25,7 +25,7 @@ class CampusMindRepository(
     persist(result)
     dao.insertLog(
       ActivityLog(
-        message = "${result.kind.name} agent processed inbox text with ${result.runtimeType.name}: ${result.runtimeStatusText}",
+        message = "${result.kind.name} agent processed inbox text with ${result.modelStatusText}",
       ).toEntity(),
     )
     return result

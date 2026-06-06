@@ -1,16 +1,18 @@
 package com.campusmind.app.agent
 
-import com.campusmind.app.ai.RuntimeOrchestrator
+import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
 
 class AgentRouter(
-  runtimeOrchestrator: RuntimeOrchestrator? = null,
-  private val studyAgent: StudentAgent = StudyAgent(runtimeOrchestrator),
-  private val deadlineAgent: StudentAgent = DeadlineAgent(runtimeOrchestrator),
-  private val expenseAgent: StudentAgent = ExpenseAgent(runtimeOrchestrator),
+  modelRunner: SingleModelRunner,
+  private val studyAgent: StudentAgent = StudyAgent(modelRunner),
+  private val deadlineAgent: StudentAgent = DeadlineAgent(modelRunner),
+  private val expenseAgent: StudentAgent = ExpenseAgent(modelRunner),
 ) {
   suspend fun route(inputText: String): AgentResult {
+    AgentFallbacks.structured(inputText)?.let { return it }
+
     val kind = chooseKind(inputText)
     return when (kind) {
       AgentKind.Study -> studyAgent.analyze(inputText)
