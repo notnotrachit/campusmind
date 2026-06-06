@@ -4,6 +4,8 @@ import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.CAMPUS_MODEL_STATUS
+import com.campusmind.app.model.TaskItem
+import com.campusmind.app.model.TaskPrioritySuggestion
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -39,6 +41,17 @@ class AgentRouter(
       )
   }
 
+  suspend fun prioritizeTasks(tasks: List<TaskItem>): Result<List<TaskPrioritySuggestion>> {
+    val openTasks = tasks.filterNot { it.done }.take(8)
+    if (openTasks.isEmpty()) return Result.success(emptyList())
+
+    return modelRunner.generateStructured(priorityPrompt(openTasks), AgentSchemas.nextActions)
+      .mapCatching { text ->
+        AgentJsonParser.parseNextActions(text)
+          ?: error("Model returned malformed priority JSON")
+      }
+  }
+
   fun chooseKind(inputText: String): AgentKind {
     val lower = inputText.lowercase()
     return when {
@@ -60,6 +73,19 @@ class AgentRouter(
 
     Notification:
     $inputText
+    """.trimIndent()
+
+  private fun priorityPrompt(tasks: List<TaskItem>): String =
+    """
+    Current date/time: ${currentDateTimeContext()}.
+    Prioritize these student deadlines. Return at most 4 nextActions.
+    Prefer tasks due soon, high academic impact work, and tasks that unblock later work.
+    Keep each action short and concrete.
+
+    Deadlines:
+    ${tasks.joinToString("\n") { task ->
+      "id=${task.id}; title=${task.title}; due=${task.dueDateText}; source=${task.source.take(80)}"
+    }}
     """.trimIndent()
 
   private fun notificationFailureResult(summary: String): AgentResult =

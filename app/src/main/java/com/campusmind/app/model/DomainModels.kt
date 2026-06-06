@@ -30,6 +30,13 @@ data class TaskItem(
   val done: Boolean = false,
 )
 
+data class TaskPrioritySuggestion(
+  val taskId: Long,
+  val action: String,
+  val reason: String,
+  val urgency: String,
+)
+
 data class Flashcard(
   val id: Long = 0,
   val front: String,

@@ -89,6 +89,7 @@ import com.campusmind.app.ai.ModelDownloadState
 import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
+import com.campusmind.app.model.TaskPrioritySuggestion
 import com.campusmind.app.model.TaskItem
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -162,6 +163,10 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         deadlineCount = state.tasks.size,
         flashcardCount = state.flashcards.size,
         expenseCount = state.expenses.size,
+        tasks = state.tasks,
+        nextActions = state.nextActions,
+        isPrioritizing = state.isPrioritizing,
+        priorityStatus = state.priorityStatus,
         onInputChange = viewModel::updateInput,
         onSubmit = viewModel::submitInput,
         onJumpToDeadlines = { selectedTab = Tab.Deadlines },
@@ -210,6 +215,10 @@ private fun InboxScreen(
   deadlineCount: Int,
   flashcardCount: Int,
   expenseCount: Int,
+  tasks: List<TaskItem>,
+  nextActions: List<TaskPrioritySuggestion>,
+  isPrioritizing: Boolean,
+  priorityStatus: String,
   onInputChange: (String) -> Unit,
   onSubmit: () -> Unit,
   onJumpToDeadlines: () -> Unit,
@@ -233,6 +242,15 @@ private fun InboxScreen(
         StatTile("Deadlines", deadlineCount.toString(), Icons.Rounded.Event, Modifier.weight(1f))
         StatTile("Cards", flashcardCount.toString(), Icons.Rounded.Style, Modifier.weight(1f))
       }
+    }
+    item {
+      NextActionsPanel(
+        nextActions = nextActions,
+        tasks = tasks,
+        isPrioritizing = isPrioritizing,
+        priorityStatus = priorityStatus,
+        onJumpToDeadlines = onJumpToDeadlines,
+      )
     }
     item {
       InputPanel(
@@ -259,6 +277,127 @@ private fun InboxScreen(
     }
   }
 }
+
+@Composable
+private fun NextActionsPanel(
+  nextActions: List<TaskPrioritySuggestion>,
+  tasks: List<TaskItem>,
+  isPrioritizing: Boolean,
+  priorityStatus: String,
+  onJumpToDeadlines: () -> Unit,
+) {
+  Card(
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    shape = RoundedCornerShape(8.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+          IconBadge(icon = Icons.Rounded.Bolt, tint = MaterialTheme.colorScheme.primary)
+          Column {
+            Text("Do Next", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+              priorityStatus,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+        }
+        TextButton(onClick = onJumpToDeadlines) { Text("Calendar") }
+      }
+
+      if (isPrioritizing) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+      }
+
+      when {
+        nextActions.isNotEmpty() -> {
+          nextActions.forEachIndexed { index, action ->
+            NextActionRow(
+              rank = index + 1,
+              suggestion = action,
+              task = tasks.firstOrNull { it.id == action.taskId },
+            )
+          }
+        }
+        tasks.isEmpty() -> {
+          EmptyCard("No deadlines to rank", "Add a mock notification with a deadline and the local model will decide what to do first.")
+        }
+        !isPrioritizing -> {
+          EmptyCard("No priority plan yet", "The local model has not returned next actions for the current deadlines.")
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun NextActionRow(
+  rank: Int,
+  suggestion: TaskPrioritySuggestion,
+  task: TaskItem?,
+) {
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+    shape = RoundedCornerShape(8.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Row(
+      modifier = Modifier.padding(12.dp),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalAlignment = Alignment.Top,
+    ) {
+      Surface(
+        color = urgencyColor(suggestion.urgency).copy(alpha = 0.16f),
+        contentColor = urgencyColor(suggestion.urgency),
+        shape = CircleShape,
+      ) {
+        Text(
+          text = rank.toString(),
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+        )
+      }
+      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+          RuntimePill(suggestion.urgency, ready = suggestion.urgency.equals("Now", ignoreCase = true))
+          task?.dueDateText?.takeIf { it.isNotBlank() }?.let { RuntimePill(it, ready = true) }
+        }
+        Text(
+          text = suggestion.action,
+          style = MaterialTheme.typography.bodyMedium,
+          fontWeight = FontWeight.SemiBold,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          text = suggestion.reason,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun urgencyColor(urgency: String): Color =
+  when (urgency.lowercase(Locale.US)) {
+    "now" -> MaterialTheme.colorScheme.error
+    "today" -> MaterialTheme.colorScheme.primary
+    "later" -> MaterialTheme.colorScheme.outline
+    else -> MaterialTheme.colorScheme.secondary
+  }
 
 @Composable
 private fun DeadlinesScreen(

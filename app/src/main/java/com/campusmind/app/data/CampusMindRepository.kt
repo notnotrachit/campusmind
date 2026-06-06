@@ -5,6 +5,8 @@ import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.InboxItem
 import com.campusmind.app.model.InboxType
+import com.campusmind.app.model.TaskItem
+import com.campusmind.app.model.TaskPrioritySuggestion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -75,6 +77,9 @@ class CampusMindRepository(
     dao.deleteTask(taskId)
     dao.insertLog(ActivityLog(message = "Deleted deadline").toEntity())
   }
+
+  suspend fun prioritizeTasks(tasks: List<TaskItem>): List<TaskPrioritySuggestion> =
+    router.prioritizeTasks(tasks).getOrThrow()
 
   private suspend fun persist(result: AgentResult) {
     if (result.tasks.isNotEmpty()) dao.insertTasks(result.tasks.map { it.toEntity() })

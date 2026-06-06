@@ -4,6 +4,7 @@ import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
+import com.campusmind.app.model.TaskPrioritySuggestion
 import com.campusmind.app.model.TaskItem
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -58,6 +59,19 @@ object AgentJsonParser {
       },
       modelStatusText = modelStatusText,
     )
+  }
+
+  fun parseNextActions(rawText: String): List<TaskPrioritySuggestion>? {
+    val root = runCatching { json.parseToJsonElement(rawText.extractJsonObject()).jsonObject }.getOrNull() ?: return null
+    return root.array("nextActions").mapNotNull { item ->
+      val obj = item as? JsonObject ?: return@mapNotNull null
+      TaskPrioritySuggestion(
+        taskId = obj.string("taskId")?.toLongOrNull() ?: return@mapNotNull null,
+        action = obj.string("action") ?: return@mapNotNull null,
+        reason = obj.string("reason") ?: return@mapNotNull null,
+        urgency = obj.string("urgency") ?: "Next",
+      )
+    }.takeIf { it.isNotEmpty() }
   }
 
   private fun titleFromSource(sourceText: String): String =

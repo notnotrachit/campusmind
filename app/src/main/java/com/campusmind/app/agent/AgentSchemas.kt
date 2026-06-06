@@ -160,4 +160,40 @@ object AgentSchemas {
       }
     """.trimIndent(),
   )
+
+  val nextActions = StructuredSchema(
+    toolName = "prioritize_student_tasks",
+    systemInstruction = """
+      You are a student planning assistant. Always call prioritize_student_tasks.
+      Rank the student's next tasks using urgency, academic impact, effort, and due dates.
+      Return only actions that the student can do next, ordered from highest priority to lowest.
+    """.trimIndent(),
+    toolDescriptionJson = """
+      {
+        "name": "prioritize_student_tasks",
+        "description": "Prioritize upcoming student deadlines into concrete next actions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "summary": { "type": "string", "description": "One short sentence summarizing the plan." },
+            "nextActions": {
+              "type": "array",
+              "description": "The top next actions to do now.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "taskId": { "type": "integer", "description": "The id of the existing task this action belongs to." },
+                  "action": { "type": "string", "description": "Specific next action the student should do." },
+                  "reason": { "type": "string", "description": "Why this action is prioritized." },
+                  "urgency": { "type": "string", "enum": ["Now", "Today", "Next", "Later"] }
+                },
+                "required": ["taskId", "action", "reason", "urgency"]
+              }
+            }
+          },
+          "required": ["summary", "nextActions"]
+        }
+      }
+    """.trimIndent(),
+  )
 }

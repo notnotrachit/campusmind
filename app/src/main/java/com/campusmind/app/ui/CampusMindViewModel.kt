@@ -10,11 +10,14 @@ import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
 import com.campusmind.app.model.ModelConfig
+import com.campusmind.app.model.TaskPrioritySuggestion
 import com.campusmind.app.model.TaskItem
 import com.campusmind.app.settings.ModelSettingsStore
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,6 +30,9 @@ data class CampusMindUiState(
   val expenses: List<ExpenseItem> = emptyList(),
   val logs: List<ActivityLog> = emptyList(),
   val inboxCount: Int = 0,
+  val nextActions: List<TaskPrioritySuggestion> = emptyList(),
+  val isPrioritizing: Boolean = false,
+  val priorityStatus: String = "Waiting for deadlines",
   val modelConfig: ModelConfig = ModelConfig(),
   val modelDownloadState: ModelDownloadState = ModelDownloadState(),
 )
@@ -37,6 +43,27 @@ class CampusMindViewModel(
   private val modelDownloadManager: ModelDownloadManager,
 ) : ViewModel() {
   private val transient = kotlinx.coroutines.flow.MutableStateFlow(CampusMindUiState())
+
+  init {
+    viewModelScope.launch {
+      combine(
+        repository.tasks.map { tasks -> tasks.filterNot { it.done } },
+        modelSettingsStore.config,
+      ) { tasks, config -> tasks to config.modelPath }
+        .distinctUntilChanged()
+        .collect { (tasks, modelPath) ->
+          if (modelPath.isBlank() && tasks.isNotEmpty()) {
+            transient.value = transient.value.copy(
+              nextActions = emptyList(),
+              isPrioritizing = false,
+              priorityStatus = "Model needed for priorities",
+            )
+          } else {
+            refreshNextActions(tasks)
+          }
+        }
+    }
+  }
 
   val uiState: StateFlow<CampusMindUiState> =
     combine(
@@ -137,6 +164,37 @@ class CampusMindViewModel(
       repository.deleteTask(taskId)
       transient.value = transient.value.copy(status = "Deadline deleted")
     }
+  }
+
+  private suspend fun refreshNextActions(tasks: List<TaskItem>) {
+    if (tasks.isEmpty()) {
+      transient.value = transient.value.copy(
+        nextActions = emptyList(),
+        isPrioritizing = false,
+        priorityStatus = "Waiting for deadlines",
+      )
+      return
+    }
+
+    transient.value = transient.value.copy(
+      isPrioritizing = true,
+      priorityStatus = "Prioritizing with local model...",
+    )
+    runCatching { repository.prioritizeTasks(tasks) }
+      .onSuccess { nextActions ->
+        transient.value = transient.value.copy(
+          nextActions = nextActions,
+          isPrioritizing = false,
+          priorityStatus = if (nextActions.isEmpty()) "No next actions returned" else "Prioritized by local model",
+        )
+      }
+      .onFailure { error ->
+        transient.value = transient.value.copy(
+          nextActions = emptyList(),
+          isPrioritizing = false,
+          priorityStatus = "Priority model unavailable: ${error.message ?: error::class.java.simpleName}",
+        )
+      }
   }
 }
 
