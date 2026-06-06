@@ -2,10 +2,12 @@ package com.campusmind.app.ai
 
 import android.content.Context
 import com.campusmind.app.model.ModelConfig
+import com.campusmind.app.model.RuntimeType
 
 class LiteRtLocalLlmEngine(
   private val context: Context,
 ) : LocalLlmEngine {
+  override val runtimeType: RuntimeType = RuntimeType.LITERT_LM
   override var isReady: Boolean = false
     private set
 

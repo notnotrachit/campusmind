@@ -1,13 +1,15 @@
 package com.campusmind.app.ai
 
 import com.campusmind.app.model.ModelConfig
+import com.campusmind.app.model.RuntimeType
 
 class StubLocalLlmEngine : LocalLlmEngine {
+  override val runtimeType: RuntimeType = RuntimeType.STUB
   override var isReady: Boolean = false
     private set
 
   override suspend fun initialize(config: ModelConfig): Result<Unit> {
-    isReady = config.modelPath.isNotBlank()
+    isReady = true
     return Result.success(Unit)
   }
 

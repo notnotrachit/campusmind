@@ -57,6 +57,7 @@ dependencies {
   implementation libs.androidx.work.runtime
   implementation libs.androidx.datastore
   implementation libs.litertlm
+  implementation libs.mlkit.genai.prompt
   implementation libs.mlkit.text.recognition
 
   ksp libs.androidx.room.compiler
