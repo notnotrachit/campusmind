@@ -30,9 +30,14 @@ object AgentJsonParser {
       summary = summary,
       tasks = root.array("tasks").mapNotNull { item ->
         val obj = item as? JsonObject ?: return@mapNotNull null
+        val rawTitle = obj.string("title")
+        val rawDue = obj.string("dueDateText") ?: obj.string("due")
+        // Keep the task even if the model omitted a field: derive a title from the
+        // source and always resolve a concrete due date instead of dropping it.
+        if (rawTitle == null && rawDue == null) return@mapNotNull null
         TaskItem(
-          title = obj.string("title") ?: return@mapNotNull null,
-          dueDateText = obj.string("dueDateText") ?: obj.string("due") ?: "Review soon",
+          title = rawTitle ?: titleFromSource(sourceText),
+          dueDateText = DueDateResolver.resolveText(rawDue, fallbackText = sourceText),
           source = sourceText.take(140),
         )
       },
@@ -56,6 +61,15 @@ object AgentJsonParser {
       modelStatusText = modelStatusText,
     )
   }
+
+  private fun titleFromSource(sourceText: String): String =
+    sourceText
+      .split('.', '\n', ';')
+      .firstOrNull { it.isNotBlank() }
+      ?.trim()
+      ?.take(90)
+      ?.takeIf { it.isNotBlank() }
+      ?: "Campus deadline"
 
   private fun JsonObject.string(key: String): String? =
     this[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }

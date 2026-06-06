@@ -1,6 +1,7 @@
 package com.campusmind.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -378,6 +380,8 @@ private fun MonthlyDeadlineCalendar(
   onPreviousMonth: () -> Unit,
   onNextMonth: () -> Unit,
 ) {
+  var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+
   Card(
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     shape = RoundedCornerShape(8.dp),
@@ -414,9 +418,78 @@ private fun MonthlyDeadlineCalendar(
         visibleMonth = visibleMonth,
         today = today,
         tasksByDate = tasksByDate,
+        onDateClick = { date -> selectedDate = date },
       )
     }
   }
+
+  selectedDate?.let { date ->
+    DeadlineDayDialog(
+      date = date,
+      tasks = tasksByDate[date].orEmpty().map { it.task },
+      onDismiss = { selectedDate = null },
+    )
+  }
+}
+
+@Composable
+private fun DeadlineDayDialog(
+  date: LocalDate,
+  tasks: List<TaskItem>,
+  onDismiss: () -> Unit,
+) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    confirmButton = {
+      TextButton(onClick = onDismiss) { Text("Close") }
+    },
+    icon = { Icon(Icons.Rounded.Event, contentDescription = null) },
+    title = {
+      Text(date.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")))
+    },
+    text = {
+      if (tasks.isEmpty()) {
+        Text("No deadlines on this day.")
+      } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text(
+            "${tasks.size} deadline${if (tasks.size == 1) "" else "s"}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          tasks.forEach { task ->
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+              verticalAlignment = Alignment.Top,
+            ) {
+              Icon(
+                imageVector = if (task.done) Icons.Rounded.CheckCircle else Icons.Rounded.Event,
+                contentDescription = null,
+                tint = if (task.done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+              )
+              Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                  task.title,
+                  style = MaterialTheme.typography.bodyMedium,
+                  fontWeight = FontWeight.SemiBold,
+                )
+                if (task.source.isNotBlank()) {
+                  Text(
+                    task.source,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+  )
 }
 
 @Composable
@@ -440,6 +513,7 @@ private fun CalendarMonthGrid(
   visibleMonth: YearMonth,
   today: LocalDate,
   tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
+  onDateClick: (LocalDate) -> Unit,
 ) {
   val firstOfMonth = visibleMonth.atDay(1)
   val firstGridDate = firstOfMonth.minusDays((firstOfMonth.dayOfWeek.value - DayOfWeek.MONDAY.value).toLong())
@@ -456,6 +530,7 @@ private fun CalendarMonthGrid(
             visibleMonth = visibleMonth,
             today = today,
             entries = tasksByDate[date].orEmpty(),
+            onClick = { onDateClick(date) },
             modifier = Modifier.weight(1f),
           )
         }
@@ -470,6 +545,7 @@ private fun CalendarDayCell(
   visibleMonth: YearMonth,
   today: LocalDate,
   entries: List<DeadlineCalendarEntry>,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val inMonth = YearMonth.from(date) == visibleMonth
@@ -488,7 +564,9 @@ private fun CalendarDayCell(
   Surface(
     color = backgroundColor,
     shape = RoundedCornerShape(8.dp),
-    modifier = modifier.aspectRatio(0.78f),
+    modifier = modifier
+      .aspectRatio(0.78f)
+      .then(if (entries.isNotEmpty()) Modifier.clickable(onClick = onClick) else Modifier),
   ) {
     Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
       Text(
@@ -497,31 +575,24 @@ private fun CalendarDayCell(
         fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
         color = dayColor,
       )
-      entries.take(2).forEach { entry ->
-        CalendarTaskChip(entry.task)
-      }
-      if (entries.size > 2) {
-        Text(
-          "+${entries.size - 2}",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.primary,
-          fontWeight = FontWeight.Bold,
-        )
+      if (entries.isNotEmpty()) {
+        CalendarTaskCount(count = entries.size)
       }
     }
   }
 }
 
 @Composable
-private fun CalendarTaskChip(task: TaskItem) {
+private fun CalendarTaskCount(count: Int) {
   Surface(
     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
     contentColor = MaterialTheme.colorScheme.primary,
     shape = RoundedCornerShape(6.dp),
   ) {
     Text(
-      text = task.title,
+      text = "$count task${if (count == 1) "" else "s"}",
       style = MaterialTheme.typography.labelSmall,
+      fontWeight = FontWeight.Bold,
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
       modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),

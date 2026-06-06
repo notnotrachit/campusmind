@@ -95,15 +95,18 @@ object AgentFallbacks {
   private val studyIntentRegex = Regex("""\b(?:note|notes|revise|revision|study|explain|chapter|topic|lecture|definition|formula|flashcard)\b""", RegexOption.IGNORE_CASE)
 
   private fun String.toTask(source: String): TaskItem? {
-    val due = dueRegex.find(this)?.value?.cleanDuePhrase() ?: return null
-    if (!hasDeadlineSignal()) return null
-    val title = titleBeforeDue(due)
+    val duePhrase = dueRegex.find(this)?.value?.cleanDuePhrase()
+    // A task is created when there is either an explicit date or a deadline word
+    // ("submit", "assignment", ...). The date itself is always resolved to a real
+    // calendar date — defaulting to a week out when the text doesn't state one.
+    if (duePhrase == null && !hasDeadlineSignal()) return null
+    val title = (duePhrase?.let { titleBeforeDue(it) } ?: "")
       .ifBlank { titleAfterDue() }
       .ifBlank { "Campus deadline" }
       .take(90)
     return TaskItem(
       title = title,
-      dueDateText = due,
+      dueDateText = DueDateResolver.resolveText(duePhrase, fallbackText = this),
       source = source.take(140),
     )
   }

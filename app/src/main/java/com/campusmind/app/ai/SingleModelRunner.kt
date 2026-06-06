@@ -10,7 +10,14 @@ class SingleModelRunner(
   private val configProvider: suspend () -> ModelConfig,
   private val engine: LocalLlmEngine,
 ) {
-  suspend fun generate(prompt: String): Result<String> {
+  suspend fun generate(prompt: String): Result<String> =
+    withRetries { config -> engine.generate(prompt.compactForLiteRt(), config.toOptions()) }
+
+  /** Generate JSON constrained to [schema], so callers receive structured output. */
+  suspend fun generateStructured(prompt: String, schema: StructuredSchema): Result<String> =
+    withRetries { config -> engine.generateStructured(prompt.compactForLiteRt(), schema, config.toOptions()) }
+
+  private suspend fun withRetries(block: suspend (ModelConfig) -> Result<String>): Result<String> {
     var lastFailure: Throwable? = null
 
     repeat(MAX_GENERATION_ATTEMPTS) { attempt ->
@@ -19,15 +26,7 @@ class SingleModelRunner(
       if (init.isFailure) {
         lastFailure = init.exceptionOrNull() ?: IllegalStateException("Model initialization failed")
       } else {
-        val result = engine.generate(
-          prompt = prompt.compactForLiteRt(),
-          options = GenerationOptions(
-            maxTokens = config.maxTokens,
-            temperature = config.temperature,
-            topK = config.topK,
-            topP = config.topP,
-          ),
-        )
+        val result = block(config)
         if (result.isSuccess) return result
         lastFailure = result.exceptionOrNull()
       }
@@ -39,6 +38,9 @@ class SingleModelRunner(
 
     return Result.failure(lastFailure ?: IllegalStateException("Model generation failed"))
   }
+
+  private fun ModelConfig.toOptions(): GenerationOptions =
+    GenerationOptions(maxTokens = maxTokens, temperature = temperature, topK = topK, topP = topP)
 
   private fun String.compactForLiteRt(): String {
     val normalized = lineSequence()

@@ -11,7 +11,7 @@ class ExpenseAgent(
   override val kind = AgentKind.Expense
 
   override suspend fun analyze(inputText: String): AgentResult {
-    return modelRunner.generate(expensePrompt(inputText))
+    return modelRunner.generateStructured(expensePrompt(inputText), AgentSchemas.expense)
       .fold(
         onSuccess = { text ->
           AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
@@ -23,8 +23,7 @@ class ExpenseAgent(
 
   private fun expensePrompt(inputText: String): String =
     """
-    JSON only. Schema {"summary":"short","expenses":[{"amountText":"amount","category":"Food|Travel|Academics|Student spend","merchant":"merchant"}]}.
-    Create one expense.
+    Log the spending in this note as one expense.
     $inputText
     """.trimIndent()
 }

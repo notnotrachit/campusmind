@@ -11,7 +11,7 @@ class StudyAgent(
   override val kind = AgentKind.Study
 
   override suspend fun analyze(inputText: String): AgentResult {
-    return modelRunner.generate(studyPrompt(inputText))
+    return modelRunner.generateStructured(studyPrompt(inputText), AgentSchemas.study)
       .fold(
         onSuccess = { text ->
           AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
@@ -23,8 +23,7 @@ class StudyAgent(
 
   private fun studyPrompt(inputText: String): String =
     """
-    JSON only. Schema {"summary":"short","flashcards":[{"front":"question","back":"answer"}]}.
-    Make 2 concise flashcards.
+    Turn this note into 2 concise revision flashcards.
     $inputText
     """.trimIndent()
 }

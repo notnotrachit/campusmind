@@ -11,7 +11,7 @@ class DeadlineAgent(
   override val kind = AgentKind.Deadline
 
   override suspend fun analyze(inputText: String): AgentResult {
-    return modelRunner.generate(deadlinePrompt(inputText))
+    return modelRunner.generateStructured(deadlinePrompt(inputText), AgentSchemas.deadline)
       .fold(
         onSuccess = { text ->
           AgentJsonParser.parse(kind, text, inputText, CAMPUS_MODEL_STATUS)
@@ -23,8 +23,8 @@ class DeadlineAgent(
 
   private fun deadlinePrompt(inputText: String): String =
     """
-    JSON only. Schema {"summary":"short","tasks":[{"title":"task","dueDateText":"due"}]}.
-    Create a task only if there is a real due date. Otherwise return {"summary":"No deadline found","tasks":[]}.
+    Extract the deadline from this note. Always produce one task with a clear, specific title.
+    Put any due date in dueDateText (e.g. "tomorrow", "Friday", "15 March"); if none is stated, use "this week".
     $inputText
     """.trimIndent()
 }
