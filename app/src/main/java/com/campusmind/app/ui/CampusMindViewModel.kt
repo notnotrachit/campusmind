@@ -35,21 +35,25 @@ class CampusMindViewModel(
 
   val uiState: StateFlow<CampusMindUiState> =
     combine(
-      transient,
-      repository.tasks,
-      repository.flashcards,
-      repository.expenses,
-      repository.logs,
+      combine(
+        transient,
+        repository.tasks,
+        repository.flashcards,
+        repository.expenses,
+        repository.logs,
+      ) { current, tasks, flashcards, expenses, logs ->
+        current.copy(
+          tasks = tasks,
+          flashcards = flashcards,
+          expenses = expenses,
+          logs = logs,
+        )
+      },
       modelSettingsStore.config,
-    ) { current, tasks, flashcards, expenses, logs, modelConfig ->
-      current.copy(
-        tasks = tasks,
-        flashcards = flashcards,
-        expenses = expenses,
-        logs = logs,
-        modelConfig = modelConfig,
-      )
-    }.stateIn(
+    ) { current, modelConfig ->
+      current.copy(modelConfig = modelConfig)
+    }
+    .stateIn(
       scope = viewModelScope,
       started = SharingStarted.WhileSubscribed(5_000),
       initialValue = CampusMindUiState(),

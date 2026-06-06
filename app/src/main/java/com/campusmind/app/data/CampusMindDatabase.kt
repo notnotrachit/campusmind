@@ -14,7 +14,7 @@ import androidx.room.RoomDatabase
     ActivityLogEntity::class,
   ],
   version = 1,
-  exportSchema = true,
+  exportSchema = false,
 )
 abstract class CampusMindDatabase : RoomDatabase() {
   abstract fun dao(): CampusMindDao
