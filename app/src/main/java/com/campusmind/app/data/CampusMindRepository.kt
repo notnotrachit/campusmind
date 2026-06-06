@@ -23,7 +23,11 @@ class CampusMindRepository(
     dao.insertInbox(item.toEntity())
     val result = router.route(item.content)
     persist(result)
-    dao.insertLog(ActivityLog(message = "${result.kind.name} agent processed inbox text").toEntity())
+    dao.insertLog(
+      ActivityLog(
+        message = "${result.kind.name} agent processed inbox text with ${result.runtimeType.name}: ${result.runtimeStatusText}",
+      ).toEntity(),
+    )
     return result
   }
 

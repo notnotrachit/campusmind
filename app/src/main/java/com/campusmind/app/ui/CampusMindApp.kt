@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.campusmind.app.ai.RuntimeState
 import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
@@ -40,7 +41,7 @@ import com.campusmind.app.model.TaskItem
 private enum class Tab(val label: String) {
   Inbox("Inbox"),
   Results("Results"),
-  Model("Model"),
+  Model("AI Runtime"),
   Activity("Activity"),
 }
 
@@ -98,6 +99,8 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         modelPath = state.modelConfig.modelPath,
         backend = state.modelConfig.backend,
         maxTokens = state.modelConfig.maxTokens,
+        aiCoreMode = "${state.modelConfig.aiCoreReleaseStage.name} · ${state.modelConfig.aiCorePreference.name}",
+        runtimeState = state.runtimeState,
         onSavePath = viewModel::saveModelPath,
       )
       Tab.Activity -> ActivityScreen(
@@ -186,6 +189,8 @@ private fun ModelScreen(
   modelPath: String,
   backend: String,
   maxTokens: Int,
+  aiCoreMode: String,
+  runtimeState: RuntimeState,
   onSavePath: (String) -> Unit,
 ) {
   var draftPath by remember(modelPath) { mutableStateOf(modelPath) }
@@ -194,8 +199,12 @@ private fun ModelScreen(
     verticalArrangement = Arrangement.spacedBy(12.dp),
   ) {
     item {
-      Text("On-device Model", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-      Text("Manual import keeps the first demo phone-only and avoids downloader/auth setup.")
+      Text("AI Runtime", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+      Text("AI Core is attempted first. LiteRT LM uses this manual model path when AI Core is unavailable.")
+    }
+    item { ResultCard("AI Core", "${runtimeState.statusText} · $aiCoreMode") }
+    if (runtimeState.lastFailureReason.isNotBlank()) {
+      item { ResultCard("Fallback reason", runtimeState.lastFailureReason) }
     }
     item {
       OutlinedTextField(
@@ -208,10 +217,10 @@ private fun ModelScreen(
     }
     item {
       Button(onClick = { onSavePath(draftPath) }, modifier = Modifier.fillMaxWidth()) {
-        Text("Save model path")
+        Text("Save LiteRT fallback path")
       }
     }
-    item { ResultCard("Runtime", "Google AI Edge LiteRT LM dependency installed") }
+    item { ResultCard("Active runtime", runtimeState.activeRuntime.name) }
     item { ResultCard("Backend", "$backend · max $maxTokens tokens") }
   }
 }

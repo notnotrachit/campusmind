@@ -3,6 +3,8 @@ package com.campusmind.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.campusmind.app.ai.RuntimeOrchestrator
+import com.campusmind.app.ai.RuntimeState
 import com.campusmind.app.data.CampusMindRepository
 import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
@@ -25,11 +27,13 @@ data class CampusMindUiState(
   val expenses: List<ExpenseItem> = emptyList(),
   val logs: List<ActivityLog> = emptyList(),
   val modelConfig: ModelConfig = ModelConfig(),
+  val runtimeState: RuntimeState = RuntimeState(),
 )
 
 class CampusMindViewModel(
   private val repository: CampusMindRepository,
   private val modelSettingsStore: ModelSettingsStore,
+  private val runtimeOrchestrator: RuntimeOrchestrator,
 ) : ViewModel() {
   private val transient = kotlinx.coroutines.flow.MutableStateFlow(CampusMindUiState())
 
@@ -50,8 +54,9 @@ class CampusMindViewModel(
         )
       },
       modelSettingsStore.config,
-    ) { current, modelConfig ->
-      current.copy(modelConfig = modelConfig)
+      runtimeOrchestrator.state,
+    ) { current, modelConfig, runtimeState ->
+      current.copy(modelConfig = modelConfig, runtimeState = runtimeState)
     }
     .stateIn(
       scope = viewModelScope,
@@ -92,8 +97,9 @@ class CampusMindViewModel(
 class CampusMindViewModelFactory(
   private val repository: CampusMindRepository,
   private val modelSettingsStore: ModelSettingsStore,
+  private val runtimeOrchestrator: RuntimeOrchestrator,
 ) : ViewModelProvider.Factory {
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
-    CampusMindViewModel(repository, modelSettingsStore) as T
+    CampusMindViewModel(repository, modelSettingsStore, runtimeOrchestrator) as T
 }
