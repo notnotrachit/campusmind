@@ -32,12 +32,10 @@ object AgentJsonParser {
         val obj = item as? JsonObject ?: return@mapNotNull null
         val rawTitle = obj.string("title")
         val rawDue = obj.string("dueDateText") ?: obj.string("due")
-        // Keep the task even if the model omitted a field: derive a title from the
-        // source and always resolve a concrete due date instead of dropping it.
-        if (rawTitle == null && rawDue == null) return@mapNotNull null
+        if (rawDue == null) return@mapNotNull null
         TaskItem(
           title = rawTitle ?: titleFromSource(sourceText),
-          dueDateText = rawDue ?: DueDateResolver.resolveText(null, fallbackText = sourceText),
+          dueDateText = rawDue,
           source = sourceText.take(140),
         )
       },

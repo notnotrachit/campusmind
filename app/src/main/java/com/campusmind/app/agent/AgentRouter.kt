@@ -31,9 +31,11 @@ class AgentRouter(
       .fold(
         onSuccess = { text ->
           AgentJsonParser.parse(AgentKind.Notification, text, inputText, CAMPUS_MODEL_STATUS)
-            ?: notificationFallback(inputText)
+            ?: notificationFailureResult("Model returned malformed notification JSON")
         },
-        onFailure = { notificationFallback(inputText) },
+        onFailure = { error ->
+          notificationFailureResult("Notification model failed: ${error.message ?: error::class.java.simpleName}")
+        },
       )
   }
 
@@ -60,13 +62,12 @@ class AgentRouter(
     $inputText
     """.trimIndent()
 
-  private fun notificationFallback(inputText: String): AgentResult =
-    AgentFallbacks.structured(inputText)?.copy(kind = AgentKind.Notification)
-      ?: AgentResult(
-        kind = AgentKind.Notification,
-        summary = "Ignored non-actionable notification",
-        modelStatusText = "Local fallback",
-      )
+  private fun notificationFailureResult(summary: String): AgentResult =
+    AgentResult(
+      kind = AgentKind.Notification,
+      summary = summary,
+      modelStatusText = "LiteRT-LM",
+    )
 
   private fun currentDateTimeContext(): String =
     ZonedDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy, HH:mm z", Locale.US))

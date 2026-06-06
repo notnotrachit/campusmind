@@ -925,7 +925,7 @@ private fun InputPanel(
           audioStatus = "No speech captured"
         } else {
           val prefix = if (latestInputText.isBlank()) "" else "\n"
-          latestOnInputChange("$latestInputText${prefix}Voice: $transcript")
+          latestOnInputChange("$latestInputText$prefix$transcript")
           audioStatus = "Voice added to mock notification"
         }
       }
