@@ -9,6 +9,18 @@ CampusMind is a phone-first student productivity assistant for the AgentKit spri
 | ![Inbox](docs/screenshots/inbox.png) | ![Deadlines](docs/screenshots/deadlines.png) | ![Study](docs/screenshots/study.png) | ![AI Runtime](docs/screenshots/runtime.png) |
 | Classify a notification and see what to do next | Detected deadlines on a calendar | Auto-extracted flashcards and expenses | Manage the on-device model |
 
+## Download
+
+**[⬇️ Download CampusMind.apk](release/CampusMind.apk?raw=true)** (arm64, ~41 MB)
+
+To install on an Android phone:
+
+1. Download `release/CampusMind.apk` (tap the link above, then **Download**).
+2. Open the file. Android will ask to allow installs from this source — tap **Settings → Allow from this source**, then go back and **Install**.
+3. Launch CampusMind, open **AI Runtime** (gear icon, top-right) and download the `Gemma-4-E2B-it` model once. Everything then runs offline.
+
+> The APK targets `arm64-v8a`, which covers virtually all modern phones. It is signed with a debug key for easy sideloading, so Play Protect may show a one-time "unknown developer" prompt.
+
 ## What it does
 
 You paste (or dictate) a messy campus notification — an assignment brief, exam notice, fee reminder, or lecture note — and the on-device model classifies it into a **deadline**, a **flashcard**, or an **expense**, then prioritizes what to act on first.
@@ -33,6 +45,7 @@ You paste (or dictate) a messy campus notification — an assignment brief, exam
 ./gradlew assembleDebug          # build the debug APK
 ./gradlew installDebug           # build + install on a connected device
 ./gradlew testDebugUnitTest      # run unit tests
+./gradlew assembleRelease        # build the shipped APK -> release/ (R8-minified, arm64, debug-signed)
 ```
 
 The app does **not** bundle the model. Open **AI Runtime** (the gear icon in the top bar) and download `Gemma-4-E2B-it`; CampusMind stores the `.litertlm` file in app-specific external storage and uses that single model for all agents. You can also paste an existing model path manually.

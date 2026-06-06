@@ -28,8 +28,15 @@ android {
 
   buildTypes {
     release {
-      minifyEnabled false
+      minifyEnabled true
+      shrinkResources true
+      // Signed with the auto-managed debug key so the distributable APK installs without a custom keystore.
+      signingConfig signingConfigs.debug
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+      // Ship a single arm64 APK (covers virtually all modern phones) to stay under GitHub's file size limit.
+      ndk {
+        abiFilters 'arm64-v8a'
+      }
     }
   }
 
