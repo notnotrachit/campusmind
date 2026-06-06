@@ -4,6 +4,9 @@ import com.campusmind.app.ai.SingleModelRunner
 import com.campusmind.app.model.AgentKind
 import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.CAMPUS_MODEL_STATUS
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class AgentRouter(
   private val modelRunner: SingleModelRunner,
@@ -49,6 +52,8 @@ class AgentRouter(
     Only create tasks for real deadlines or student actions. Create flashcards for study concepts.
     Create expenses for payments or receipts. If it is not useful for student productivity, set important=false
     and return empty tasks, flashcards, and expenses.
+    Current date/time for resolving relative due dates: ${currentDateTimeContext()}.
+    Convert relative dates like "tomorrow", "next Friday", or "ten days from now" into absolute dueDateText values.
 
     Notification:
     $inputText
@@ -61,4 +66,7 @@ class AgentRouter(
         summary = "Ignored non-actionable notification",
         modelStatusText = "Local fallback",
       )
+
+  private fun currentDateTimeContext(): String =
+    ZonedDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy, HH:mm z", Locale.US))
 }
