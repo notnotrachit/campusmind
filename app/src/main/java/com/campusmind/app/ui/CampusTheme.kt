@@ -13,27 +13,49 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.campusmind.app.R
 
+// Palette resolved from the Google Stitch "CampusMind" design system (Material 3, warm academic).
 private val CampusColors = lightColorScheme(
-  primary = Color(0xFF1E5F55),
+  primary = Color(0xFF00473E),
   onPrimary = Color.White,
-  primaryContainer = Color(0xFFCFE9DE),
-  onPrimaryContainer = Color(0xFF0D332E),
-  secondary = Color(0xFF8A4B2D),
-  secondaryContainer = Color(0xFFFFDAC8),
-  tertiary = Color(0xFF465C8C),
+  primaryContainer = Color(0xFF1E5F55),
+  onPrimaryContainer = Color(0xFF98D6CA),
+  secondary = Color(0xFF8D4D2F),
+  onSecondary = Color.White,
+  secondaryContainer = Color(0xFFFDAA85),
+  onSecondaryContainer = Color(0xFF783D20),
+  tertiary = Color(0xFF263D6B),
+  onTertiary = Color.White,
+  tertiaryContainer = Color(0xFF3E5484),
+  onTertiaryContainer = Color(0xFFB4C9FF),
   background = Color(0xFFF6F2EA),
+  onBackground = Color(0xFF1D1C16),
   surface = Color(0xFFFFFFFF),
-  surfaceVariant = Color(0xFFECE5D8),
-  outline = Color(0xFF77746D),
-  error = Color(0xFFB3261E),
+  onSurface = Color(0xFF1D1C16),
+  surfaceVariant = Color(0xFFE7E2D9),
+  onSurfaceVariant = Color(0xFF3F4946),
+  outline = Color(0xFF6F7976),
+  outlineVariant = Color(0xFFBFC9C5),
+  error = Color(0xFFBA1A1A),
+  onError = Color.White,
+  errorContainer = Color(0xFFFFDAD6),
+  onErrorContainer = Color(0xFF93000A),
 )
+
+// Extra Stitch tokens that have no direct slot in Material 3 ColorScheme.
+object CampusPalette {
+  val surfaceContainer = Color(0xFFF2EDE5)
+  val surfaceContainerHigh = Color(0xFFEDE8DF)
+  val secondaryFixed = Color(0xFFFFDBCD)
+  val onSecondaryFixed = Color(0xFF350F00)
+  val onSecondaryFixedVariant = Color(0xFF70371A)
+}
 
 private val CampusShapes = Shapes(
   extraSmall = RoundedCornerShape(6.dp),
   small = RoundedCornerShape(8.dp),
   medium = RoundedCornerShape(8.dp),
-  large = RoundedCornerShape(8.dp),
-  extraLarge = RoundedCornerShape(8.dp),
+  large = RoundedCornerShape(12.dp),
+  extraLarge = RoundedCornerShape(12.dp),
 )
 
 private val Poppins = FontFamily(

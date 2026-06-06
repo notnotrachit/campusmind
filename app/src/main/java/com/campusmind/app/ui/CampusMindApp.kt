@@ -10,7 +10,9 @@ import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,43 +25,57 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DataObject
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SmartToy
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -82,15 +98,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.campusmind.app.ai.ModelDownloadState
-import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
 import com.campusmind.app.model.Flashcard
-import com.campusmind.app.model.TaskPrioritySuggestion
 import com.campusmind.app.model.TaskItem
+import com.campusmind.app.model.TaskPrioritySuggestion
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -100,17 +117,19 @@ import java.util.Locale
 
 private enum class Tab(val label: String, val icon: ImageVector) {
   Inbox("Inbox", Icons.Rounded.Inbox),
-  Deadlines("Deadlines", Icons.Rounded.Event),
-  Study("Study", Icons.Rounded.School),
+  Deadlines("Deadlines", Icons.Rounded.EventBusy),
+  Study("Study", Icons.Rounded.MenuBook),
   Model("Runtime", Icons.Rounded.Memory),
-  Activity("Activity", Icons.Rounded.History),
 }
+
+private val bottomTabs = listOf(Tab.Inbox, Tab.Deadlines, Tab.Study)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CampusMindApp(viewModel: CampusMindViewModel) {
   val state by viewModel.uiState.collectAsState()
   var selectedTab by remember { mutableStateOf(Tab.Inbox) }
+  val ready = state.modelConfig.modelPath.isNotBlank()
 
   Scaffold(
     containerColor = MaterialTheme.colorScheme.background,
@@ -122,32 +141,50 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         ),
         title = {
           Column {
-            Text("CampusMind", fontWeight = FontWeight.Bold)
+            Text(
+              "CampusMind",
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+            )
             Text(
               text = state.status,
               style = MaterialTheme.typography.labelMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              color = MaterialTheme.colorScheme.secondary,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
           }
         },
         actions = {
-          RuntimePill(
-            text = if (state.modelConfig.modelPath.isBlank()) "Model needed" else "Offline ready",
-            ready = state.modelConfig.modelPath.isNotBlank(),
+          StatusPill(
+            text = if (ready) "Offline ready" else "Model needed",
+            ready = ready,
           )
+          IconButton(onClick = { selectedTab = Tab.Model }) {
+            Icon(
+              Icons.Rounded.Settings,
+              contentDescription = "AI Runtime settings",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         },
       )
     },
     bottomBar = {
       NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-        Tab.entries.forEach { tab ->
+        bottomTabs.forEach { tab ->
           NavigationBarItem(
             selected = selectedTab == tab,
             onClick = { selectedTab = tab },
             icon = { Icon(tab.icon, contentDescription = tab.label) },
             label = { Text(tab.label) },
+            colors = NavigationBarItemDefaults.colors(
+              selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+              selectedTextColor = MaterialTheme.colorScheme.primary,
+              indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+              unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+              unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
           )
         }
       }
@@ -162,7 +199,6 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         notificationCount = state.inboxCount,
         deadlineCount = state.tasks.size,
         flashcardCount = state.flashcards.size,
-        expenseCount = state.expenses.size,
         tasks = state.tasks,
         nextActions = state.nextActions,
         isPrioritizing = state.isPrioritizing,
@@ -170,6 +206,7 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         onInputChange = viewModel::updateInput,
         onSubmit = viewModel::submitInput,
         onJumpToDeadlines = { selectedTab = Tab.Deadlines },
+        onCompleteAction = viewModel::deleteTask,
       )
       Tab.Deadlines -> DeadlinesScreen(
         modifier = contentModifier,
@@ -197,14 +234,13 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         onSavePath = viewModel::saveModelPath,
         onDownloadModel = viewModel::downloadModel,
       )
-      Tab.Activity -> ActivityScreen(
-        modifier = contentModifier,
-        logs = state.logs,
-        onJumpToInbox = { selectedTab = Tab.Inbox },
-      )
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Inbox
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun InboxScreen(
@@ -214,7 +250,6 @@ private fun InboxScreen(
   notificationCount: Int,
   deadlineCount: Int,
   flashcardCount: Int,
-  expenseCount: Int,
   tasks: List<TaskItem>,
   nextActions: List<TaskPrioritySuggestion>,
   isPrioritizing: Boolean,
@@ -222,24 +257,23 @@ private fun InboxScreen(
   onInputChange: (String) -> Unit,
   onSubmit: () -> Unit,
   onJumpToDeadlines: () -> Unit,
+  onCompleteAction: (Long) -> Unit,
 ) {
   LazyColumn(
     modifier = modifier.fillMaxSize().padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
+    verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     item {
       HeroPanel(
+        icon = Icons.Rounded.NotificationsActive,
         title = "Notification deadline agent",
-        body = "Mock notification payloads are classified locally into deadlines, flashcards, expenses, or ignored items with structured output.",
-        trailing = {
-          IconBadge(icon = Icons.Rounded.NotificationsActive, tint = MaterialTheme.colorScheme.primary)
-        },
+        body = "Sorting your incoming chaos.",
       )
     }
     item {
-      Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        StatTile("Seen", notificationCount.toString(), Icons.Rounded.NotificationsActive, Modifier.weight(1f))
-        StatTile("Deadlines", deadlineCount.toString(), Icons.Rounded.Event, Modifier.weight(1f))
+      Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+        StatTile("Seen", notificationCount.toString(), Icons.Rounded.Visibility, Modifier.weight(1f))
+        StatTile("Deadlines", deadlineCount.toString(), Icons.Rounded.EventBusy, Modifier.weight(1f))
         StatTile("Cards", flashcardCount.toString(), Icons.Rounded.Style, Modifier.weight(1f))
       }
     }
@@ -250,6 +284,7 @@ private fun InboxScreen(
         isPrioritizing = isPrioritizing,
         priorityStatus = priorityStatus,
         onJumpToDeadlines = onJumpToDeadlines,
+        onCompleteAction = onCompleteAction,
       )
     }
     item {
@@ -259,21 +294,6 @@ private fun InboxScreen(
         onInputChange = onInputChange,
         onSubmit = onSubmit,
       )
-    }
-    item {
-      FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-      ) {
-        FilterChip(selected = true, onClick = {}, label = { Text("Notifications") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) })
-        FilterChip(selected = false, onClick = {}, label = { Text("Manual test") })
-        FilterChip(selected = false, onClick = {}, label = { Text("Spend $expenseCount") })
-      }
-    }
-    item {
-      TextButton(onClick = onJumpToDeadlines, modifier = Modifier.fillMaxWidth()) {
-        Text("Open deadline view")
-      }
     }
   }
 }
@@ -285,32 +305,33 @@ private fun NextActionsPanel(
   isPrioritizing: Boolean,
   priorityStatus: String,
   onJumpToDeadlines: () -> Unit,
+  onCompleteAction: (Long) -> Unit,
 ) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+  CampusCard {
+    Column {
       Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
           IconBadge(icon = Icons.Rounded.Bolt, tint = MaterialTheme.colorScheme.primary)
           Column {
             Text("Do Next", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
               priorityStatus,
-              style = MaterialTheme.typography.bodySmall,
+              style = MaterialTheme.typography.labelMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
           }
         }
-        TextButton(onClick = onJumpToDeadlines) { Text("Calendar") }
+        TextButton(onClick = onJumpToDeadlines) {
+          Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.size(6.dp))
+          Text("Calendar", style = MaterialTheme.typography.labelLarge)
+        }
       }
 
       if (isPrioritizing) {
@@ -320,18 +341,21 @@ private fun NextActionsPanel(
       when {
         nextActions.isNotEmpty() -> {
           nextActions.forEachIndexed { index, action ->
+            if (index == 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             NextActionRow(
-              rank = index + 1,
               suggestion = action,
-              task = tasks.firstOrNull { it.id == action.taskId },
+              onComplete = { onCompleteAction(action.taskId) },
             )
+            if (index < nextActions.lastIndex) {
+              HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            }
           }
         }
-        tasks.isEmpty() -> {
-          EmptyCard("No deadlines to rank", "Add a mock notification with a deadline and the local model will decide what to do first.")
+        tasks.isEmpty() -> Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+          InlineEmpty("No deadlines to rank", "Add a mock notification with a deadline and the local model will decide what to do first.")
         }
-        !isPrioritizing -> {
-          EmptyCard("No priority plan yet", "The local model has not returned next actions for the current deadlines.")
+        !isPrioritizing -> Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+          InlineEmpty("No priority plan yet", "The local model has not returned next actions for the current deadlines.")
         }
       }
     }
@@ -340,672 +364,68 @@ private fun NextActionsPanel(
 
 @Composable
 private fun NextActionRow(
-  rank: Int,
   suggestion: TaskPrioritySuggestion,
-  task: TaskItem?,
+  onComplete: () -> Unit,
 ) {
-  Surface(
-    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+    verticalAlignment = Alignment.CenterVertically,
   ) {
-    Row(
-      modifier = Modifier.padding(12.dp),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-      verticalAlignment = Alignment.Top,
-    ) {
-      Surface(
-        color = urgencyColor(suggestion.urgency).copy(alpha = 0.16f),
-        contentColor = urgencyColor(suggestion.urgency),
-        shape = CircleShape,
-      ) {
-        Text(
-          text = rank.toString(),
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.Bold,
-          modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-        )
-      }
-      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-          RuntimePill(suggestion.urgency, ready = suggestion.urgency.equals("Now", ignoreCase = true))
-          task?.dueDateText?.takeIf { it.isNotBlank() }?.let { RuntimePill(it, ready = true) }
-        }
-        Text(
-          text = suggestion.action,
-          style = MaterialTheme.typography.bodyMedium,
-          fontWeight = FontWeight.SemiBold,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-          text = suggestion.reason,
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
-      }
+    UrgencyPill(suggestion.urgency)
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Text(
+        text = suggestion.action,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+      )
+      Text(
+        text = suggestion.reason,
+        style = MaterialTheme.typography.bodyMedium,
+        color = urgencyAccent(suggestion.urgency),
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+      )
+    }
+    IconButton(onClick = onComplete) {
+      Icon(
+        Icons.Rounded.CheckCircle,
+        contentDescription = "Mark done",
+        tint = MaterialTheme.colorScheme.outline,
+      )
     }
   }
 }
 
 @Composable
-private fun urgencyColor(urgency: String): Color =
+private fun UrgencyPill(urgency: String) {
+  val (bg, fg) = when (urgency.lowercase(Locale.US)) {
+    "now" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    "later" -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    else -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+  }
+  Surface(color = bg, contentColor = fg, shape = CircleShape, modifier = Modifier.width(68.dp)) {
+    Text(
+      text = urgency,
+      style = MaterialTheme.typography.labelMedium,
+      fontWeight = FontWeight.Medium,
+      textAlign = TextAlign.Center,
+      maxLines = 1,
+      modifier = Modifier.padding(vertical = 5.dp),
+    )
+  }
+}
+
+@Composable
+private fun urgencyAccent(urgency: String): Color =
   when (urgency.lowercase(Locale.US)) {
     "now" -> MaterialTheme.colorScheme.error
-    "today" -> MaterialTheme.colorScheme.primary
     "later" -> MaterialTheme.colorScheme.outline
-    else -> MaterialTheme.colorScheme.secondary
+    "today" -> MaterialTheme.colorScheme.secondary
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
   }
-
-@Composable
-private fun DeadlinesScreen(
-  modifier: Modifier,
-  tasks: List<TaskItem>,
-  onDeleteTask: (Long) -> Unit,
-  onJumpToInbox: () -> Unit,
-) {
-  val openCount = tasks.count { !it.done }
-  var visibleMonth by remember { mutableStateOf(YearMonth.now()) }
-  val today = remember { LocalDate.now() }
-  val datedTasks = remember(tasks, visibleMonth) {
-    tasks.map { task -> DeadlineCalendarEntry(task, parseDeadlineDate(task.dueDateText, visibleMonth)) }
-  }
-  val tasksByDate = datedTasks.filter { it.date != null }.groupBy { it.date }
-  val unscheduledTasks = datedTasks.filter { it.date == null }.map { it.task }
-  LazyColumn(
-    modifier = modifier.fillMaxSize().padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
-  ) {
-    item {
-      ScreenHeader(
-        icon = Icons.Rounded.Event,
-        title = "Deadline View",
-        body = "$openCount open · ${tasks.size} total student deadlines",
-      )
-    }
-    item {
-      MonthlyDeadlineCalendar(
-        visibleMonth = visibleMonth,
-        today = today,
-        tasksByDate = tasksByDate,
-        onPreviousMonth = { visibleMonth = visibleMonth.minusMonths(1) },
-        onNextMonth = { visibleMonth = visibleMonth.plusMonths(1) },
-        onDeleteTask = onDeleteTask,
-      )
-    }
-    if (tasks.isEmpty()) {
-      item {
-        EmptyState(
-          title = "No deadlines yet",
-          body = "Paste an assignment brief, exam notice, or project reminder and every detected deadline will appear on the calendar.",
-          action = "Add deadline text",
-          onAction = onJumpToInbox,
-        )
-      }
-    } else if (unscheduledTasks.isNotEmpty()) {
-      item { SectionTitle("Needs Date", unscheduledTasks.size, Icons.Rounded.Event) }
-      items(unscheduledTasks) { task -> DeadlineCard(task) }
-    }
-  }
-}
-
-@Composable
-private fun StudyScreen(
-  modifier: Modifier,
-  flashcards: List<Flashcard>,
-  expenses: List<ExpenseItem>,
-  onJumpToInbox: () -> Unit,
-) {
-  LazyColumn(
-    modifier = modifier.fillMaxSize().padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
-  ) {
-    item {
-      ScreenHeader(
-        icon = Icons.Rounded.School,
-        title = "Study Items",
-        body = "${flashcards.size} flashcards · ${expenses.size} expenses",
-      )
-    }
-    if (flashcards.isEmpty() && expenses.isEmpty()) {
-      item {
-        EmptyState(
-          title = "Nothing sorted yet",
-          body = "Run one inbox item and parsed flashcards or spending notes will show up here.",
-          action = "Open inbox",
-          onAction = onJumpToInbox,
-        )
-      }
-    } else {
-      item { SectionTitle("Flashcards", flashcards.size, Icons.Rounded.Style) }
-      if (flashcards.isEmpty()) item { EmptyCard("No flashcards", "Lecture notes become quick revision cards here.") }
-      items(flashcards) { card -> ResultCard(card.front, card.back, Icons.Rounded.School, card.source) }
-
-      item { SectionTitle("Expenses", expenses.size, Icons.AutoMirrored.Rounded.ReceiptLong) }
-      if (expenses.isEmpty()) item { EmptyCard("No expenses", "Receipt and payment details are grouped here.") }
-      items(expenses) { expense ->
-        ResultCard("${expense.merchant} · ${expense.amountText}", expense.category, Icons.Rounded.CreditCard, expense.source)
-      }
-    }
-  }
-}
-
-@Composable
-private fun DeadlineCard(task: TaskItem) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-      ) {
-        IconBadge(
-          icon = if (task.done) Icons.Rounded.CheckCircle else Icons.Rounded.Event,
-          tint = if (task.done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-        )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-          RuntimePill(task.dueDateText.ifBlank { "Due date pending" }, ready = !task.done)
-        }
-      }
-      if (task.source.isNotBlank()) {
-        Text(
-          task.source,
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
-      }
-    }
-  }
-}
-
-private data class DeadlineCalendarEntry(
-  val task: TaskItem,
-  val date: LocalDate?,
-)
-
-@Composable
-private fun MonthlyDeadlineCalendar(
-  visibleMonth: YearMonth,
-  today: LocalDate,
-  tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
-  onPreviousMonth: () -> Unit,
-  onNextMonth: () -> Unit,
-  onDeleteTask: (Long) -> Unit,
-) {
-  var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
-
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        IconButton(onClick = onPreviousMonth) {
-          Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Previous month")
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            visibleMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-          )
-          Text(
-            "${tasksByDate.values.sumOf { it.size }} scheduled",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        IconButton(onClick = onNextMonth) {
-          Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Next month")
-        }
-      }
-
-      CalendarWeekHeader()
-      CalendarMonthGrid(
-        visibleMonth = visibleMonth,
-        today = today,
-        tasksByDate = tasksByDate,
-        onDateClick = { date -> selectedDate = date },
-      )
-    }
-  }
-
-  selectedDate?.let { date ->
-    DeadlineDayDialog(
-      date = date,
-      tasks = tasksByDate[date].orEmpty().map { it.task },
-      onDeleteTask = onDeleteTask,
-      onDismiss = { selectedDate = null },
-    )
-  }
-}
-
-@Composable
-private fun DeadlineDayDialog(
-  date: LocalDate,
-  tasks: List<TaskItem>,
-  onDeleteTask: (Long) -> Unit,
-  onDismiss: () -> Unit,
-) {
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    confirmButton = {
-      TextButton(onClick = onDismiss) { Text("Close") }
-    },
-    icon = { Icon(Icons.Rounded.Event, contentDescription = null) },
-    title = {
-      Text(date.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")))
-    },
-    text = {
-      if (tasks.isEmpty()) {
-        Text("No deadlines on this day.")
-      } else {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          Text(
-            "${tasks.size} deadline${if (tasks.size == 1) "" else "s"}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          tasks.forEach { task ->
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
-              verticalAlignment = Alignment.Top,
-            ) {
-              Icon(
-                imageVector = if (task.done) Icons.Rounded.CheckCircle else Icons.Rounded.Event,
-                contentDescription = null,
-                tint = if (task.done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-              )
-              Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                  task.title,
-                  style = MaterialTheme.typography.bodyMedium,
-                  fontWeight = FontWeight.SemiBold,
-                  maxLines = 2,
-                  overflow = TextOverflow.Ellipsis,
-                )
-                if (task.source.isNotBlank()) {
-                  Text(
-                    task.source,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-              }
-              IconButton(
-                onClick = {
-                  onDeleteTask(task.id)
-                  onDismiss()
-                },
-                modifier = Modifier.size(36.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.Delete,
-                  contentDescription = "Delete deadline",
-                  tint = MaterialTheme.colorScheme.error,
-                )
-              }
-            }
-          }
-        }
-      }
-    },
-  )
-}
-
-@Composable
-private fun CalendarWeekHeader() {
-  val weekdays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-  Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-    weekdays.forEach { day ->
-      Text(
-        text = day,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.weight(1f),
-      )
-    }
-  }
-}
-
-@Composable
-private fun CalendarMonthGrid(
-  visibleMonth: YearMonth,
-  today: LocalDate,
-  tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
-  onDateClick: (LocalDate) -> Unit,
-) {
-  val firstOfMonth = visibleMonth.atDay(1)
-  val firstGridDate = firstOfMonth.minusDays((firstOfMonth.dayOfWeek.value - DayOfWeek.MONDAY.value).toLong())
-  val weeks = List(6) { week ->
-    List(7) { day -> firstGridDate.plusDays((week * 7 + day).toLong()) }
-  }
-
-  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    weeks.forEach { week ->
-      Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-        week.forEach { date ->
-          CalendarDayCell(
-            date = date,
-            visibleMonth = visibleMonth,
-            today = today,
-            entries = tasksByDate[date].orEmpty(),
-            onClick = { onDateClick(date) },
-            modifier = Modifier.weight(1f),
-          )
-        }
-      }
-    }
-  }
-}
-
-@Composable
-private fun CalendarDayCell(
-  date: LocalDate,
-  visibleMonth: YearMonth,
-  today: LocalDate,
-  entries: List<DeadlineCalendarEntry>,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  val inMonth = YearMonth.from(date) == visibleMonth
-  val isToday = date == today
-  val backgroundColor = when {
-    isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-    entries.isNotEmpty() -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f)
-    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (inMonth) 0.52f else 0.24f)
-  }
-  val dayColor = when {
-    !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = 0.58f)
-    isToday -> MaterialTheme.colorScheme.primary
-    else -> MaterialTheme.colorScheme.onSurface
-  }
-
-  Surface(
-    color = backgroundColor,
-    shape = RoundedCornerShape(8.dp),
-    modifier = modifier
-      .aspectRatio(0.78f)
-      .then(if (entries.isNotEmpty()) Modifier.clickable(onClick = onClick) else Modifier),
-  ) {
-    Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      Text(
-        text = date.dayOfMonth.toString(),
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
-        color = dayColor,
-      )
-      if (entries.isNotEmpty()) {
-        CalendarTaskCount(count = entries.size)
-      }
-    }
-  }
-}
-
-@Composable
-private fun CalendarTaskCount(count: Int) {
-  Surface(
-    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-    contentColor = MaterialTheme.colorScheme.primary,
-    shape = RoundedCornerShape(6.dp),
-  ) {
-    Text(
-      text = count.toString(),
-      style = MaterialTheme.typography.labelSmall,
-      fontWeight = FontWeight.Bold,
-      maxLines = 1,
-      modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-    )
-  }
-}
-
-private fun parseDeadlineDate(text: String, visibleMonth: YearMonth): LocalDate? {
-  val value = text.trim()
-  if (value.isBlank()) return null
-
-  parseIsoDate(value)?.let { return it }
-  parseSlashDate(value, visibleMonth)?.let { return it }
-  parseMonthNameDate(value, visibleMonth)?.let { return it }
-  parseRelativeDate(value)?.let { return it }
-
-  return null
-}
-
-private fun parseIsoDate(value: String): LocalDate? {
-  val match = Regex("""\b(\d{4})-(\d{1,2})-(\d{1,2})\b""").find(value) ?: return null
-  return localDateOrNull(
-    year = match.groupValues[1].toInt(),
-    month = match.groupValues[2].toInt(),
-    day = match.groupValues[3].toInt(),
-  )
-}
-
-private fun parseSlashDate(value: String, visibleMonth: YearMonth): LocalDate? {
-  val match = Regex("""\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b""").find(value) ?: return null
-  val day = match.groupValues[1].toInt()
-  val month = match.groupValues[2].toInt()
-  val yearText = match.groupValues[3]
-  val year = when {
-    yearText.isBlank() -> visibleMonth.year
-    yearText.length == 2 -> 2000 + yearText.toInt()
-    else -> yearText.toInt()
-  }
-  return localDateOrNull(year = year, month = month, day = day)
-}
-
-private fun parseMonthNameDate(value: String, visibleMonth: YearMonth): LocalDate? {
-  val monthPattern = "(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)"
-  val lower = value.lowercase(Locale.US)
-  Regex("""\b$monthPattern\s+(\d{1,2})(?:,?\s+(\d{4}))?\b""").find(lower)?.let { match ->
-    val month = monthNumber(match.groupValues[1]) ?: return null
-    val day = match.groupValues[2].toInt()
-    val year = match.groupValues[3].takeIf { it.isNotBlank() }?.toInt() ?: visibleMonth.year
-    return localDateOrNull(year = year, month = month, day = day)
-  }
-  Regex("""\b(\d{1,2})\s+$monthPattern(?:,?\s+(\d{4}))?\b""").find(lower)?.let { match ->
-    val day = match.groupValues[1].toInt()
-    val month = monthNumber(match.groupValues[2]) ?: return null
-    val year = match.groupValues[3].takeIf { it.isNotBlank() }?.toInt() ?: visibleMonth.year
-    return localDateOrNull(year = year, month = month, day = day)
-  }
-  return null
-}
-
-private fun parseRelativeDate(value: String): LocalDate? {
-  val lower = value.lowercase(Locale.US)
-  val today = LocalDate.now()
-  if (Regex("""\btoday\b""").containsMatchIn(lower)) return today
-  if (Regex("""\btomorrow\b""").containsMatchIn(lower)) return today.plusDays(1)
-
-  val weekdays = mapOf(
-    "monday" to DayOfWeek.MONDAY,
-    "tuesday" to DayOfWeek.TUESDAY,
-    "wednesday" to DayOfWeek.WEDNESDAY,
-    "thursday" to DayOfWeek.THURSDAY,
-    "friday" to DayOfWeek.FRIDAY,
-    "saturday" to DayOfWeek.SATURDAY,
-    "sunday" to DayOfWeek.SUNDAY,
-  )
-  weekdays.forEach { (name, dayOfWeek) ->
-    if (Regex("""\b$name\b""").containsMatchIn(lower)) {
-      return today.with(TemporalAdjusters.nextOrSame(dayOfWeek))
-    }
-  }
-  return null
-}
-
-private fun monthNumber(value: String): Int? =
-  when (value.take(3).lowercase(Locale.US)) {
-    "jan" -> 1
-    "feb" -> 2
-    "mar" -> 3
-    "apr" -> 4
-    "may" -> 5
-    "jun" -> 6
-    "jul" -> 7
-    "aug" -> 8
-    "sep" -> 9
-    "oct" -> 10
-    "nov" -> 11
-    "dec" -> 12
-    else -> null
-  }
-
-private fun localDateOrNull(year: Int, month: Int, day: Int): LocalDate? =
-  runCatching { LocalDate.of(year, month, day) }.getOrNull()
-
-@Composable
-private fun ModelScreen(
-  modifier: Modifier,
-  modelName: String,
-  modelId: String,
-  modelFile: String,
-  commitHash: String,
-  sizeInBytes: Long,
-  modelPath: String,
-  backend: String,
-  maxTokens: Int,
-  modelDownloadState: ModelDownloadState,
-  onSavePath: (String) -> Unit,
-  onDownloadModel: (String) -> Unit,
-) {
-  var draftPath by remember(modelPath) { mutableStateOf(modelPath) }
-  val endpoint = remember(modelId, commitHash, modelFile) {
-    "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
-  }
-  LazyColumn(
-    modifier = modifier.fillMaxSize().padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
-  ) {
-    item {
-      ScreenHeader(
-        icon = Icons.Rounded.Memory,
-        title = "AI Runtime",
-        body = "One local LiteRT-LM model powers routing for the hackathon MVP.",
-      )
-    }
-    item {
-      RuntimeCard(
-        modelName = modelName,
-        modelFile = modelFile,
-        sizeInBytes = sizeInBytes,
-        modelPath = modelPath,
-        backend = backend,
-        maxTokens = maxTokens,
-      )
-    }
-    if (modelDownloadState.isDownloading || modelDownloadState.progressPercent != null) {
-      item {
-        DownloadProgress(modelDownloadState)
-      }
-    }
-    item {
-      Button(
-        onClick = { onDownloadModel(endpoint) },
-        enabled = !modelDownloadState.isDownloading,
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Icon(Icons.Rounded.Download, contentDescription = null)
-        Spacer(Modifier.size(8.dp))
-        Text(if (modelDownloadState.isDownloading) "Downloading model" else "Download model")
-      }
-    }
-    item {
-      OutlinedTextField(
-        value = draftPath,
-        onValueChange = { draftPath = it },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Local model path") },
-        placeholder = { Text("/storage/emulated/0/Android/data/.../$modelFile") },
-        supportingText = { Text("Paste a downloaded model path if the download manager is not used.") },
-        minLines = 2,
-      )
-    }
-    item {
-      OutlinedButton(onClick = { onSavePath(draftPath) }, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Rounded.Settings, contentDescription = null)
-        Spacer(Modifier.size(8.dp))
-        Text("Save path")
-      }
-    }
-    item { DetailCard("Hugging Face endpoint", endpoint, Icons.Rounded.DataObject) }
-  }
-}
-
-@Composable
-private fun ActivityScreen(
-  modifier: Modifier,
-  logs: List<ActivityLog>,
-  onJumpToInbox: () -> Unit,
-) {
-  LazyColumn(
-    modifier = modifier.fillMaxSize().padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp),
-  ) {
-    item {
-      ScreenHeader(
-        icon = Icons.Rounded.History,
-        title = "Local Activity",
-        body = "${logs.size} stored agent actions",
-      )
-    }
-    if (logs.isEmpty()) {
-      item {
-        EmptyState(
-          title = "No local actions yet",
-          body = "Activity appears after the first agent run.",
-          action = "Run an item",
-          onAction = onJumpToInbox,
-        )
-      }
-    } else {
-      items(logs) { log -> ResultCard(log.message, "Stored on device", Icons.Rounded.History) }
-    }
-  }
-}
-
-@Composable
-private fun HeroPanel(
-  title: String,
-  body: String,
-  trailing: @Composable () -> Unit,
-) {
-  Surface(
-    color = MaterialTheme.colorScheme.primaryContainer,
-    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Row(
-      modifier = Modifier.padding(18.dp),
-      horizontalArrangement = Arrangement.spacedBy(14.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(body, style = MaterialTheme.typography.bodyMedium)
-      }
-      trailing()
-    }
-  }
-}
 
 @Composable
 private fun InputPanel(
@@ -1107,25 +527,21 @@ private fun InputPanel(
     }
   }
 
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        IconBadge(icon = Icons.Rounded.Inbox, tint = MaterialTheme.colorScheme.tertiary)
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        IconBadge(icon = Icons.Rounded.Inbox, tint = MaterialTheme.colorScheme.primary)
         Column {
           Text("Chaos Inbox", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-          Text("Manual classifier test", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Text("Manual classifier test", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
       OutlinedTextField(
         value = inputText,
         onValueChange = onInputChange,
-        modifier = Modifier.fillMaxWidth().height(190.dp),
-        label = { Text("Notification-like text") },
-        placeholder = { Text("Title: DBMS assignment\nText: Submit ER diagram by Friday...") },
+        modifier = Modifier.fillMaxWidth().height(150.dp),
+        shape = RoundedCornerShape(8.dp),
+        placeholder = { Text("Dump your chaotic thoughts here...") },
         trailingIcon = {
           IconButton(
             onClick = {
@@ -1143,13 +559,14 @@ private fun InputPanel(
             Icon(
               imageVector = if (isListening) Icons.Rounded.MicOff else Icons.Rounded.Mic,
               contentDescription = if (isListening) "Stop voice input" else "Start voice input",
+              tint = MaterialTheme.colorScheme.primary,
             )
           }
         },
       )
       Text(
         text = audioStatus,
-        style = MaterialTheme.typography.bodySmall,
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
@@ -1157,15 +574,973 @@ private fun InputPanel(
       Button(
         onClick = onSubmit,
         enabled = !isProcessing,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        shape = RoundedCornerShape(8.dp),
       ) {
-        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null)
-        Spacer(Modifier.size(8.dp))
         Text(if (isProcessing) "Routing locally" else "Run local agent")
+        Spacer(Modifier.size(8.dp))
+        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null, modifier = Modifier.size(20.dp))
       }
       if (isProcessing) {
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
       }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deadlines
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun DeadlinesScreen(
+  modifier: Modifier,
+  tasks: List<TaskItem>,
+  onDeleteTask: (Long) -> Unit,
+  onJumpToInbox: () -> Unit,
+) {
+  val openCount = tasks.count { !it.done }
+  var visibleMonth by remember { mutableStateOf(YearMonth.now()) }
+  val today = remember { LocalDate.now() }
+  val datedTasks = remember(tasks, visibleMonth) {
+    tasks.map { task -> DeadlineCalendarEntry(task, parseDeadlineDate(task.dueDateText, visibleMonth)) }
+  }
+  val tasksByDate = datedTasks.filter { it.date != null }.groupBy { it.date }
+  val selectedMonthScheduleCount = datedTasks.count { entry ->
+    entry.date?.let { YearMonth.from(it) == visibleMonth } == true
+  }
+  val unscheduledTasks = datedTasks.filter { it.date == null }.map { it.task }
+  LazyColumn(
+    modifier = modifier.fillMaxSize().padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(20.dp),
+  ) {
+    item {
+      CenteredHeader(
+        title = "Deadline View",
+        body = "$openCount open · ${tasks.size} total student deadlines",
+      )
+    }
+    item {
+      MonthlyDeadlineCalendar(
+        visibleMonth = visibleMonth,
+        today = today,
+        tasksByDate = tasksByDate,
+        scheduleCount = selectedMonthScheduleCount,
+        onPreviousMonth = { visibleMonth = visibleMonth.minusMonths(1) },
+        onNextMonth = { visibleMonth = visibleMonth.plusMonths(1) },
+        onDeleteTask = onDeleteTask,
+      )
+    }
+    if (tasks.isEmpty()) {
+      item {
+        EmptyState(
+          icon = Icons.Rounded.EventBusy,
+          title = "No deadlines yet",
+          body = "Paste an assignment brief, exam notice, or project reminder and every detected deadline will appear on the calendar.",
+          action = "Add deadline text",
+          onAction = onJumpToInbox,
+        )
+      }
+    } else if (unscheduledTasks.isNotEmpty()) {
+      item {
+        Text(
+          "Unscheduled",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.SemiBold,
+          modifier = Modifier.padding(start = 4.dp),
+        )
+      }
+      items(unscheduledTasks) { task -> DeadlineCard(task, onDelete = { onDeleteTask(task.id) }) }
+    }
+  }
+}
+
+@Composable
+private fun DeadlineCard(task: TaskItem, onDelete: () -> Unit) {
+  CampusCard {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(16.dp),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      IconBadge(
+        icon = if (task.done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+        tint = if (task.done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+      )
+      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+          task.title,
+          style = MaterialTheme.typography.titleSmall,
+          fontWeight = FontWeight.SemiBold,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          if (task.source.isNotBlank()) "Source: ${task.source}" else "No source",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+      val hasDate = task.dueDateText.isNotBlank()
+      Surface(
+        color = if (hasDate) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (hasDate) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = CircleShape,
+      ) {
+        Text(
+          text = if (hasDate) task.dueDateText else "Set Date",
+          style = MaterialTheme.typography.labelMedium,
+          maxLines = 1,
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+      }
+      var menuOpen by remember { mutableStateOf(false) }
+      Box {
+        IconButton(onClick = { menuOpen = true }) {
+          Icon(Icons.Rounded.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+          DropdownMenuItem(
+            text = { Text("Delete") },
+            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            onClick = {
+              menuOpen = false
+              onDelete()
+            },
+          )
+        }
+      }
+    }
+  }
+}
+
+private data class DeadlineCalendarEntry(
+  val task: TaskItem,
+  val date: LocalDate?,
+)
+
+@Composable
+private fun MonthlyDeadlineCalendar(
+  visibleMonth: YearMonth,
+  today: LocalDate,
+  tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
+  scheduleCount: Int,
+  onPreviousMonth: () -> Unit,
+  onNextMonth: () -> Unit,
+  onDeleteTask: (Long) -> Unit,
+) {
+  var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          visibleMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.SemiBold,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          CircleIconButton(Icons.Rounded.ChevronLeft, "Previous month", onPreviousMonth)
+          CircleIconButton(Icons.Rounded.ChevronRight, "Next month", onNextMonth)
+        }
+      }
+
+      CalendarWeekHeader()
+      CalendarMonthGrid(
+        visibleMonth = visibleMonth,
+        today = today,
+        tasksByDate = tasksByDate,
+        onDateClick = { date -> selectedDate = date },
+      )
+
+      HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape))
+        Text(
+          "Deadlines · $scheduleCount this month",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+  }
+
+  selectedDate?.let { date ->
+    DeadlineDayDialog(
+      date = date,
+      tasks = tasksByDate[date].orEmpty().map { it.task },
+      onDeleteTask = onDeleteTask,
+      onDismiss = { selectedDate = null },
+    )
+  }
+}
+
+@Composable
+private fun CircleIconButton(icon: ImageVector, description: String, onClick: () -> Unit) {
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    shape = CircleShape,
+    modifier = Modifier.size(36.dp).clickable(onClick = onClick),
+  ) {
+    Box(contentAlignment = Alignment.Center) {
+      Icon(icon, contentDescription = description, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+    }
+  }
+}
+
+@Composable
+private fun DeadlineDayDialog(
+  date: LocalDate,
+  tasks: List<TaskItem>,
+  onDeleteTask: (Long) -> Unit,
+  onDismiss: () -> Unit,
+) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    confirmButton = {
+      TextButton(onClick = onDismiss) { Text("Close") }
+    },
+    icon = { Icon(Icons.Rounded.Event, contentDescription = null) },
+    title = {
+      Text(date.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")))
+    },
+    text = {
+      if (tasks.isEmpty()) {
+        Text("No deadlines on this day.")
+      } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text(
+            "${tasks.size} deadline${if (tasks.size == 1) "" else "s"}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          tasks.forEach { task ->
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+              verticalAlignment = Alignment.Top,
+            ) {
+              Icon(
+                imageVector = if (task.done) Icons.Rounded.CheckCircle else Icons.Rounded.Event,
+                contentDescription = null,
+                tint = if (task.done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+              )
+              Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                  task.title,
+                  style = MaterialTheme.typography.bodyMedium,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis,
+                )
+                if (task.source.isNotBlank()) {
+                  Text(
+                    task.source,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+              IconButton(
+                onClick = {
+                  onDeleteTask(task.id)
+                  onDismiss()
+                },
+                modifier = Modifier.size(36.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Delete,
+                  contentDescription = "Delete deadline",
+                  tint = MaterialTheme.colorScheme.error,
+                )
+              }
+            }
+          }
+        }
+      }
+    },
+  )
+}
+
+@Composable
+private fun CalendarWeekHeader() {
+  val weekdays = listOf("S", "M", "T", "W", "T", "F", "S")
+  Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+    weekdays.forEach { day ->
+      Text(
+        text = day,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.weight(1f),
+      )
+    }
+  }
+}
+
+@Composable
+private fun CalendarMonthGrid(
+  visibleMonth: YearMonth,
+  today: LocalDate,
+  tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
+  onDateClick: (LocalDate) -> Unit,
+) {
+  val firstOfMonth = visibleMonth.atDay(1)
+  // Sunday-first grid (Sun=0 .. Sat=6).
+  val leadOffset = firstOfMonth.dayOfWeek.value % 7
+  val firstGridDate = firstOfMonth.minusDays(leadOffset.toLong())
+  val weeks = List(6) { week ->
+    List(7) { day -> firstGridDate.plusDays((week * 7 + day).toLong()) }
+  }
+
+  Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    weeks.forEach { week ->
+      Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
+        week.forEach { date ->
+          CalendarDayCell(
+            date = date,
+            visibleMonth = visibleMonth,
+            today = today,
+            entries = tasksByDate[date].orEmpty(),
+            onClick = { onDateClick(date) },
+            modifier = Modifier.weight(1f),
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun CalendarDayCell(
+  date: LocalDate,
+  visibleMonth: YearMonth,
+  today: LocalDate,
+  entries: List<DeadlineCalendarEntry>,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val inMonth = YearMonth.from(date) == visibleMonth
+  val isToday = date == today
+  val hasEntries = entries.isNotEmpty()
+
+  val circleColor = when {
+    isToday -> MaterialTheme.colorScheme.primary
+    hasEntries && inMonth -> CampusPalette.surfaceContainerHigh
+    else -> Color.Transparent
+  }
+  val dayColor = when {
+    isToday -> MaterialTheme.colorScheme.onPrimary
+    !inMonth -> MaterialTheme.colorScheme.outlineVariant
+    hasEntries -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.onSurface
+  }
+
+  Box(
+    modifier = modifier
+      .aspectRatio(1f)
+      .then(if (hasEntries) Modifier.clickable(onClick = onClick) else Modifier),
+    contentAlignment = Alignment.Center,
+  ) {
+    Box(
+      modifier = Modifier.size(36.dp).background(circleColor, CircleShape),
+      contentAlignment = Alignment.Center,
+    ) {
+      Text(
+        text = date.dayOfMonth.toString(),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = if (isToday || hasEntries) FontWeight.Bold else FontWeight.Normal,
+        color = dayColor,
+      )
+    }
+    if (hasEntries) {
+      Box(
+        modifier = Modifier
+          .align(Alignment.TopEnd)
+          .size(16.dp)
+          .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = entries.size.toString(),
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
+          fontSize = 9.sp,
+          fontWeight = FontWeight.Bold,
+        )
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Study
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun StudyScreen(
+  modifier: Modifier,
+  flashcards: List<Flashcard>,
+  expenses: List<ExpenseItem>,
+  onJumpToInbox: () -> Unit,
+) {
+  LazyColumn(
+    modifier = modifier.fillMaxSize().padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(20.dp),
+  ) {
+    item {
+      CampusCard {
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(16.dp),
+          horizontalArrangement = Arrangement.spacedBy(12.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          IconBadge(icon = Icons.Rounded.School, tint = MaterialTheme.colorScheme.primary)
+          Column {
+            Text("Study Items", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+              "${flashcards.size} flashcards · ${expenses.size} expenses",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+      }
+    }
+    if (flashcards.isEmpty() && expenses.isEmpty()) {
+      item {
+        EmptyState(
+          icon = Icons.Rounded.School,
+          title = "Nothing sorted yet",
+          body = "Run one inbox item and parsed flashcards or spending notes will show up here.",
+          action = "Open inbox",
+          onAction = onJumpToInbox,
+        )
+      }
+    } else {
+      item {
+        SectionHeader(
+          icon = Icons.Rounded.Style,
+          title = "Flashcards",
+          badgeColor = MaterialTheme.colorScheme.tertiaryContainer,
+          onBadgeColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+      }
+      if (flashcards.isEmpty()) {
+        item { InfoCard("No flashcards yet", "Lecture notes become quick revision cards here.") }
+      }
+      items(flashcards) { card -> FlashcardCard(card) }
+
+      item {
+        SectionHeader(
+          icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+          title = "Expenses",
+          badgeColor = MaterialTheme.colorScheme.errorContainer,
+          onBadgeColor = MaterialTheme.colorScheme.onErrorContainer,
+        )
+      }
+      if (expenses.isEmpty()) {
+        item { InfoCard("No expenses yet", "Receipt and payment details are grouped here.") }
+      }
+      items(expenses) { expense -> ExpenseCard(expense) }
+    }
+  }
+}
+
+@Composable
+private fun FlashcardCard(card: Flashcard) {
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Box(
+        modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(Icons.Rounded.Style, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
+      }
+      Text(card.front, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+      HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+      Text(card.back, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      if (card.source.isNotBlank()) {
+        Surface(
+          color = CampusPalette.surfaceContainer,
+          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          shape = RoundedCornerShape(6.dp),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Icon(Icons.Rounded.AutoStories, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(card.source, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun ExpenseCard(expense: ExpenseItem) {
+  CampusCard {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(16.dp),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      IconBadge(icon = Icons.Rounded.CreditCard, tint = MaterialTheme.colorScheme.secondary)
+      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            expense.merchant.ifBlank { "Expense" },
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+          )
+          Text(
+            expense.amountText,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+          if (expense.category.isNotBlank()) {
+            Surface(
+              color = MaterialTheme.colorScheme.secondaryContainer,
+              contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+              shape = CircleShape,
+            ) {
+              Text(
+                expense.category,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+              )
+            }
+          }
+          if (expense.source.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              Icon(Icons.Rounded.Sms, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+              Text(
+                expense.source,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ModelScreen(
+  modifier: Modifier,
+  modelName: String,
+  modelId: String,
+  modelFile: String,
+  commitHash: String,
+  sizeInBytes: Long,
+  modelPath: String,
+  backend: String,
+  maxTokens: Int,
+  modelDownloadState: ModelDownloadState,
+  onSavePath: (String) -> Unit,
+  onDownloadModel: (String) -> Unit,
+) {
+  var draftPath by remember(modelPath) { mutableStateOf(modelPath) }
+  val endpoint = remember(modelId, commitHash, modelFile) {
+    "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
+  }
+  LazyColumn(
+    modifier = modifier.fillMaxSize().padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(16.dp),
+  ) {
+    item {
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        IconBadge(icon = Icons.Rounded.Memory, tint = MaterialTheme.colorScheme.primary)
+        Text("AI Runtime", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+          "One local model powers routing",
+          style = MaterialTheme.typography.bodyLarge,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+    item {
+      RuntimeCard(
+        modelName = modelName,
+        modelFile = modelFile,
+        sizeInBytes = sizeInBytes,
+        modelPath = modelPath,
+        backend = backend,
+        maxTokens = maxTokens,
+      )
+    }
+    if (modelDownloadState.isDownloading || modelDownloadState.progressPercent != null) {
+      item { DownloadProgress(modelDownloadState) }
+    }
+    item { EndpointCard(endpoint) }
+    item {
+      CampusCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+          Text("Local model path", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          OutlinedTextField(
+            value = draftPath,
+            onValueChange = { draftPath = it },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            placeholder = { Text("/storage/emulated/0/Android/data/.../$modelFile") },
+            supportingText = { Text("Paste a downloaded model path if the download manager is not used.") },
+            minLines = 2,
+          )
+          Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+              onClick = { onDownloadModel(endpoint) },
+              enabled = !modelDownloadState.isDownloading,
+              modifier = Modifier.weight(1f).height(48.dp),
+              shape = RoundedCornerShape(8.dp),
+            ) {
+              Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+              Spacer(Modifier.size(8.dp))
+              Text(if (modelDownloadState.isDownloading) "Downloading" else "Download")
+            }
+            OutlinedButton(
+              onClick = { onSavePath(draftPath) },
+              modifier = Modifier.weight(1f).height(48.dp),
+              shape = RoundedCornerShape(8.dp),
+            ) {
+              Icon(Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(20.dp))
+              Spacer(Modifier.size(8.dp))
+              Text("Save path")
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun RuntimeCard(
+  modelName: String,
+  modelFile: String,
+  sizeInBytes: Long,
+  modelPath: String,
+  backend: String,
+  maxTokens: Int,
+) {
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+      Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconBadge(icon = Icons.Rounded.SmartToy, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
+          Text(modelName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+          Text(
+            "$modelFile · ${sizeInBytes / (1024 * 1024)} MB",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+      FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        NeutralPill("LiteRT-LM")
+        NeutralPill(backend)
+        NeutralPill("$maxTokens tokens")
+        val saved = modelPath.isNotBlank()
+        Surface(
+          color = if (saved) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.errorContainer,
+          contentColor = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onErrorContainer,
+          shape = CircleShape,
+        ) {
+          Text(
+            if (saved) "Path saved" else "Path missing",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun NeutralPill(text: String) {
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceVariant,
+    contentColor = MaterialTheme.colorScheme.onSurface,
+    shape = CircleShape,
+  ) {
+    Text(
+      text,
+      style = MaterialTheme.typography.labelMedium,
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+    )
+  }
+}
+
+@Composable
+private fun DownloadProgress(modelDownloadState: ModelDownloadState) {
+  Card(
+    colors = CardDefaults.cardColors(containerColor = CampusPalette.secondaryFixed),
+    shape = RoundedCornerShape(12.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Text("Download manager", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = CampusPalette.onSecondaryFixed)
+      Text(modelDownloadState.statusText, style = MaterialTheme.typography.labelLarge, color = CampusPalette.onSecondaryFixedVariant)
+      modelDownloadState.progressPercent?.let {
+        LinearProgressIndicator(
+          progress = { it / 100f },
+          color = MaterialTheme.colorScheme.secondary,
+          trackColor = Color.White.copy(alpha = 0.5f),
+          modifier = Modifier.fillMaxWidth(),
+        )
+        Text("$it% complete", style = MaterialTheme.typography.labelMedium, color = CampusPalette.onSecondaryFixedVariant)
+      }
+      if (modelDownloadState.downloadedPath.isNotBlank()) {
+        Text(
+          modelDownloadState.downloadedPath,
+          style = MaterialTheme.typography.labelMedium,
+          color = CampusPalette.onSecondaryFixedVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun EndpointCard(endpoint: String) {
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+          modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(Icons.Rounded.DataObject, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        }
+        Text("Hugging Face endpoint", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+      }
+      Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+          .fillMaxWidth()
+          .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+      ) {
+        Text(
+          endpoint,
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Clip,
+          modifier = Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared components
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun CampusCard(content: @Composable () -> Unit) {
+  Card(
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    shape = RoundedCornerShape(12.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    content()
+  }
+}
+
+@Composable
+private fun HeroPanel(icon: ImageVector, title: String, body: String) {
+  Surface(
+    color = MaterialTheme.colorScheme.primaryContainer,
+    shape = RoundedCornerShape(12.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Row(
+      modifier = Modifier.padding(20.dp),
+      horizontalArrangement = Arrangement.spacedBy(16.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Box(
+        modifier = Modifier.size(42.dp).background(Color.White, CircleShape),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(24.dp))
+      }
+      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, color = Color.White)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+      }
+    }
+  }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
+  CampusCardModifier(modifier) {
+    Column(
+      Modifier.padding(16.dp).fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+      IconBadge(icon = icon, tint = MaterialTheme.colorScheme.primary)
+      Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+      Text(
+        label.uppercase(Locale.US),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+    }
+  }
+}
+
+@Composable
+private fun CampusCardModifier(modifier: Modifier, content: @Composable () -> Unit) {
+  Card(
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    shape = RoundedCornerShape(12.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    modifier = modifier,
+  ) {
+    content()
+  }
+}
+
+@Composable
+private fun CenteredHeader(title: String, body: String) {
+  Column(
+    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+    Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+}
+
+@Composable
+private fun SectionHeader(icon: ImageVector, title: String, badgeColor: Color, onBadgeColor: Color) {
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    modifier = Modifier.padding(start = 4.dp),
+  ) {
+    Box(
+      modifier = Modifier.size(32.dp).background(badgeColor, CircleShape),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(icon, contentDescription = null, tint = onBadgeColor, modifier = Modifier.size(16.dp))
+    }
+    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+  }
+}
+
+@Composable
+private fun EmptyState(icon: ImageVector, title: String, body: String, action: String, onAction: () -> Unit) {
+  CampusCard {
+    Column(
+      modifier = Modifier.fillMaxWidth().padding(24.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      IconBadge(icon = icon, tint = MaterialTheme.colorScheme.secondary)
+      Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+      Text(
+        body,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+      )
+      Button(onClick = onAction, shape = RoundedCornerShape(8.dp)) { Text(action) }
+    }
+  }
+}
+
+@Composable
+private fun InfoCard(title: String, body: String) {
+  CampusCard {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+      Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+  }
+}
+
+@Composable
+private fun InlineEmpty(title: String, body: String) {
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+}
+
+@Composable
+private fun IconBadge(icon: ImageVector, tint: Color) {
+  Box(
+    modifier = Modifier
+      .size(42.dp)
+      .background(tint.copy(alpha = 0.12f), CircleShape),
+    contentAlignment = Alignment.Center,
+  ) {
+    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+  }
+}
+
+@Composable
+private fun StatusPill(text: String, ready: Boolean, modifier: Modifier = Modifier) {
+  Surface(
+    color = if (ready) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+    contentColor = if (ready) Color.White else MaterialTheme.colorScheme.onErrorContainer,
+    shape = CircleShape,
+    modifier = modifier,
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      Icon(Icons.Rounded.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+      Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
   }
 }
@@ -1184,188 +1559,101 @@ private fun speechErrorText(error: Int): String =
     else -> "Voice input failed"
   }
 
-@Composable
-private fun StatTile(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = modifier,
-  ) {
-    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-      Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-      Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+// ---------------------------------------------------------------------------
+// Date parsing for the deadline calendar
+// ---------------------------------------------------------------------------
+
+private fun parseDeadlineDate(text: String, visibleMonth: YearMonth): LocalDate? {
+  val value = text.trim()
+  if (value.isBlank()) return null
+
+  parseIsoDate(value)?.let { return it }
+  parseSlashDate(value, visibleMonth)?.let { return it }
+  parseMonthNameDate(value, visibleMonth)?.let { return it }
+  parseRelativeDate(value)?.let { return it }
+
+  return null
+}
+
+private fun parseIsoDate(value: String): LocalDate? {
+  val match = Regex("""\b(\d{4})-(\d{1,2})-(\d{1,2})\b""").find(value) ?: return null
+  return localDateOrNull(
+    year = match.groupValues[1].toInt(),
+    month = match.groupValues[2].toInt(),
+    day = match.groupValues[3].toInt(),
+  )
+}
+
+private fun parseSlashDate(value: String, visibleMonth: YearMonth): LocalDate? {
+  val match = Regex("""\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b""").find(value) ?: return null
+  val day = match.groupValues[1].toInt()
+  val month = match.groupValues[2].toInt()
+  val yearText = match.groupValues[3]
+  val year = when {
+    yearText.isBlank() -> visibleMonth.year
+    yearText.length == 2 -> 2000 + yearText.toInt()
+    else -> yearText.toInt()
+  }
+  return localDateOrNull(year = year, month = month, day = day)
+}
+
+private fun parseMonthNameDate(value: String, visibleMonth: YearMonth): LocalDate? {
+  val monthPattern = "(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)"
+  val lower = value.lowercase(Locale.US)
+  Regex("""\b$monthPattern\s+(\d{1,2})(?:,?\s+(\d{4}))?\b""").find(lower)?.let { match ->
+    val month = monthNumber(match.groupValues[1]) ?: return null
+    val day = match.groupValues[2].toInt()
+    val year = match.groupValues[3].takeIf { it.isNotBlank() }?.toInt() ?: visibleMonth.year
+    return localDateOrNull(year = year, month = month, day = day)
+  }
+  Regex("""\b(\d{1,2})\s+$monthPattern(?:,?\s+(\d{4}))?\b""").find(lower)?.let { match ->
+    val day = match.groupValues[1].toInt()
+    val month = monthNumber(match.groupValues[2]) ?: return null
+    val year = match.groupValues[3].takeIf { it.isNotBlank() }?.toInt() ?: visibleMonth.year
+    return localDateOrNull(year = year, month = month, day = day)
+  }
+  return null
+}
+
+private fun parseRelativeDate(value: String): LocalDate? {
+  val lower = value.lowercase(Locale.US)
+  val today = LocalDate.now()
+  if (Regex("""\btoday\b""").containsMatchIn(lower)) return today
+  if (Regex("""\btomorrow\b""").containsMatchIn(lower)) return today.plusDays(1)
+
+  val weekdays = mapOf(
+    "monday" to DayOfWeek.MONDAY,
+    "tuesday" to DayOfWeek.TUESDAY,
+    "wednesday" to DayOfWeek.WEDNESDAY,
+    "thursday" to DayOfWeek.THURSDAY,
+    "friday" to DayOfWeek.FRIDAY,
+    "saturday" to DayOfWeek.SATURDAY,
+    "sunday" to DayOfWeek.SUNDAY,
+  )
+  weekdays.forEach { (name, dayOfWeek) ->
+    if (Regex("""\b$name\b""").containsMatchIn(lower)) {
+      return today.with(TemporalAdjusters.nextOrSame(dayOfWeek))
     }
   }
+  return null
 }
 
-@Composable
-private fun ScreenHeader(icon: ImageVector, title: String, body: String) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(12.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    IconBadge(icon = icon, tint = MaterialTheme.colorScheme.primary)
-    Column {
-      Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-      Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun monthNumber(value: String): Int? =
+  when (value.take(3).lowercase(Locale.US)) {
+    "jan" -> 1
+    "feb" -> 2
+    "mar" -> 3
+    "apr" -> 4
+    "may" -> 5
+    "jun" -> 6
+    "jul" -> 7
+    "aug" -> 8
+    "sep" -> 9
+    "oct" -> 10
+    "nov" -> 11
+    "dec" -> 12
+    else -> null
   }
-}
 
-@Composable
-private fun SectionTitle(text: String, count: Int, icon: ImageVector) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-      Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-      Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-    }
-    Text("$count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-  }
-}
-
-@Composable
-private fun EmptyState(title: String, body: String, action: String, onAction: () -> Unit) {
-  Surface(
-    color = MaterialTheme.colorScheme.surfaceVariant,
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(
-      modifier = Modifier.padding(20.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-      IconBadge(icon = Icons.Rounded.Inbox, tint = MaterialTheme.colorScheme.secondary)
-      Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-      Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      Button(onClick = onAction) { Text(action) }
-    }
-  }
-}
-
-@Composable
-private fun EmptyCard(title: String, body: String) {
-  DetailCard(title, body, Icons.Rounded.CheckCircle)
-}
-
-@Composable
-private fun ResultCard(title: String, body: String, icon: ImageVector, source: String? = null) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Row(
-      modifier = Modifier.padding(14.dp),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      IconBadge(icon = icon, tint = MaterialTheme.colorScheme.tertiary)
-      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (!source.isNullOrBlank()) {
-          Text(
-            source,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-        }
-      }
-    }
-  }
-}
-
-@Composable
-private fun DetailCard(title: String, body: String, icon: ImageVector) {
-  ResultCard(title, body, icon)
-}
-
-@Composable
-private fun RuntimeCard(
-  modelName: String,
-  modelFile: String,
-  sizeInBytes: Long,
-  modelPath: String,
-  backend: String,
-  maxTokens: Int,
-) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconBadge(icon = Icons.Rounded.Memory, tint = MaterialTheme.colorScheme.primary)
-        Column(Modifier.weight(1f)) {
-          Text(modelName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-          Text("$modelFile · ${sizeInBytes / (1024 * 1024)} MB", style = MaterialTheme.typography.bodyMedium)
-        }
-      }
-      FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        RuntimePill("LiteRT-LM", ready = true)
-        RuntimePill(backend, ready = true)
-        RuntimePill("$maxTokens tokens", ready = true)
-        RuntimePill(if (modelPath.isBlank()) "Path missing" else "Path saved", ready = modelPath.isNotBlank())
-      }
-    }
-  }
-}
-
-@Composable
-private fun DownloadProgress(modelDownloadState: ModelDownloadState) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Text("Download manager", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-      Text(modelDownloadState.statusText, style = MaterialTheme.typography.bodyMedium)
-      modelDownloadState.progressPercent?.let {
-        LinearProgressIndicator(progress = { it / 100f }, modifier = Modifier.fillMaxWidth())
-        Text("$it% complete", style = MaterialTheme.typography.labelMedium)
-      }
-      if (modelDownloadState.downloadedPath.isNotBlank()) {
-        Text(modelDownloadState.downloadedPath, style = MaterialTheme.typography.bodySmall)
-      }
-    }
-  }
-}
-
-@Composable
-private fun IconBadge(icon: ImageVector, tint: Color) {
-  Box(
-    modifier = Modifier
-      .size(42.dp)
-      .background(tint.copy(alpha = 0.12f), CircleShape),
-    contentAlignment = Alignment.Center,
-  ) {
-    Icon(icon, contentDescription = null, tint = tint)
-  }
-}
-
-@Composable
-private fun RuntimePill(text: String, ready: Boolean) {
-  Surface(
-    color = if (ready) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
-    contentColor = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-    shape = RoundedCornerShape(8.dp),
-  ) {
-    Text(
-      text = text,
-      style = MaterialTheme.typography.labelMedium,
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-    )
-  }
-}
+private fun localDateOrNull(year: Int, month: Int, day: Int): LocalDate? =
+  runCatching { LocalDate.of(year, month, day) }.getOrNull()

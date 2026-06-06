@@ -6,6 +6,8 @@ import com.campusmind.app.model.AgentResult
 import com.campusmind.app.model.CAMPUS_MODEL_STATUS
 import com.campusmind.app.model.TaskItem
 import com.campusmind.app.model.TaskPrioritySuggestion
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -29,14 +31,19 @@ class AgentRouter(
   }
 
   suspend fun routeNotification(inputText: String): AgentResult {
-    return modelRunner.generateStructured(notificationPrompt(inputText), AgentSchemas.notification)
+    AgentFallbacks.structured(inputText)?.let { return it.asNotificationResult() }
+
+    return modelRunner.generate(notificationPrompt(inputText))
       .fold(
         onSuccess = { text ->
           AgentJsonParser.parse(AgentKind.Notification, text, inputText, CAMPUS_MODEL_STATUS)
-            ?: notificationFailureResult("Model returned malformed notification JSON")
+            ?: notificationFallbackResult(inputText, "Model returned malformed notification JSON")
         },
         onFailure = { error ->
-          notificationFailureResult("Notification model failed: ${error.message ?: error::class.java.simpleName}")
+          notificationFallbackResult(
+            inputText,
+            "Notification model failed: ${error.message ?: error::class.java.simpleName}",
+          )
         },
       )
   }
@@ -45,11 +52,7 @@ class AgentRouter(
     val openTasks = tasks.filterNot { it.done }.take(8)
     if (openTasks.isEmpty()) return Result.success(emptyList())
 
-    return modelRunner.generateStructured(priorityPrompt(openTasks), AgentSchemas.nextActions)
-      .mapCatching { text ->
-        AgentJsonParser.parseNextActions(text)
-          ?: error("Model returned malformed priority JSON")
-      }
+    return Result.success(localNextActions(openTasks))
   }
 
   fun chooseKind(inputText: String): AgentKind {
@@ -64,6 +67,9 @@ class AgentRouter(
   private fun notificationPrompt(inputText: String): String =
     """
     Classify this phone notification for a student. Extract every actionable item into structured arrays.
+    Return only a JSON object with keys: important, category, summary, tasks, flashcards, expenses.
+    Each task must have title and dueDateText. Each flashcard must have front and back.
+    Each expense must have amountText, category, and merchant.
     Only create tasks for real deadlines or student actions. Create flashcards for study concepts.
     Create expenses for payments or receipts. If it is not useful for student productivity, set important=false
     and return empty tasks, flashcards, and expenses.
@@ -88,12 +94,66 @@ class AgentRouter(
     }}
     """.trimIndent()
 
+  private fun localNextActions(tasks: List<TaskItem>): List<TaskPrioritySuggestion> {
+    val today = LocalDate.now()
+    return tasks
+      .sortedWith(
+        compareBy<TaskItem> { task -> DueDateResolver.parse(task.dueDateText, today) ?: LocalDate.MAX }
+          .thenBy { it.id },
+      )
+      .take(4)
+      .map { task ->
+        val dueDate = DueDateResolver.parse(task.dueDateText, today)
+        val daysUntil = dueDate?.let { ChronoUnit.DAYS.between(today, it) }
+        TaskPrioritySuggestion(
+          taskId = task.id,
+          action = actionFor(task, daysUntil),
+          reason = reasonFor(task, daysUntil),
+          urgency = urgencyFor(daysUntil),
+        )
+      }
+  }
+
+  private fun actionFor(task: TaskItem, daysUntil: Long?): String =
+    when {
+      daysUntil != null && daysUntil <= 0 -> "Finish ${task.title}"
+      daysUntil == 1L -> "Do the first pass on ${task.title}"
+      daysUntil != null && daysUntil <= 3 -> "Block time for ${task.title}"
+      else -> "Plan the next step for ${task.title}"
+    }.take(90)
+
+  private fun reasonFor(task: TaskItem, daysUntil: Long?): String =
+    when {
+      daysUntil == null -> "No parseable due date, so it stays visible until clarified."
+      daysUntil < 0 -> "Due date has passed: ${task.dueDateText}."
+      daysUntil == 0L -> "Due today: ${task.dueDateText}."
+      daysUntil == 1L -> "Due tomorrow: ${task.dueDateText}."
+      daysUntil <= 3 -> "Due soon: ${task.dueDateText}."
+      else -> "Upcoming deadline: ${task.dueDateText}."
+    }
+
+  private fun urgencyFor(daysUntil: Long?): String =
+    when {
+      daysUntil == null -> "Next"
+      daysUntil <= 1 -> "Now"
+      daysUntil <= 3 -> "Today"
+      daysUntil <= 7 -> "Next"
+      else -> "Later"
+    }
+
   private fun notificationFailureResult(summary: String): AgentResult =
     AgentResult(
       kind = AgentKind.Notification,
       summary = summary,
       modelStatusText = "LiteRT-LM",
     )
+
+  private fun notificationFallbackResult(inputText: String, failureSummary: String): AgentResult =
+    AgentFallbacks.structured(inputText)?.asNotificationResult()
+      ?: notificationFailureResult(failureSummary)
+
+  private fun AgentResult.asNotificationResult(): AgentResult =
+    copy(kind = AgentKind.Notification)
 
   private fun currentDateTimeContext(): String =
     ZonedDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy, HH:mm z", Locale.US))

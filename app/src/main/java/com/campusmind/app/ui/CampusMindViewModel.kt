@@ -46,21 +46,11 @@ class CampusMindViewModel(
 
   init {
     viewModelScope.launch {
-      combine(
-        repository.tasks.map { tasks -> tasks.filterNot { it.done } },
-        modelSettingsStore.config,
-      ) { tasks, config -> tasks to config.modelPath }
+      repository.tasks
+        .map { tasks -> tasks.filterNot { it.done } }
         .distinctUntilChanged()
-        .collect { (tasks, modelPath) ->
-          if (modelPath.isBlank() && tasks.isNotEmpty()) {
-            transient.value = transient.value.copy(
-              nextActions = emptyList(),
-              isPrioritizing = false,
-              priorityStatus = "Model needed for priorities",
-            )
-          } else {
-            refreshNextActions(tasks)
-          }
+        .collect { tasks ->
+          refreshNextActions(tasks)
         }
     }
   }
@@ -185,7 +175,7 @@ class CampusMindViewModel(
         transient.value = transient.value.copy(
           nextActions = nextActions,
           isPrioritizing = false,
-          priorityStatus = if (nextActions.isEmpty()) "No next actions returned" else "Prioritized by local model",
+          priorityStatus = if (nextActions.isEmpty()) "No next actions returned" else "Prioritized locally",
         )
       }
       .onFailure { error ->

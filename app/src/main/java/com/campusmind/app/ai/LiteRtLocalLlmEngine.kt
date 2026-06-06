@@ -1,6 +1,7 @@
 package com.campusmind.app.ai
 
 import android.content.Context
+import com.campusmind.app.model.CAMPUS_MODEL_MAX_TOKENS
 import com.campusmind.app.model.ModelConfig
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
@@ -23,7 +24,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-private const val MAX_LITERT_TOKENS = 128
+private const val MIN_LITERT_TOKENS = 1
 
 class LiteRtLocalLlmEngine(
   private val context: Context,
@@ -37,7 +38,7 @@ class LiteRtLocalLlmEngine(
 
   override suspend fun initialize(config: ModelConfig): Result<Unit> {
     val modelPath = config.modelPath
-    val maxTokens = config.maxTokens.coerceIn(64, MAX_LITERT_TOKENS)
+    val maxTokens = config.maxTokens.coerceIn(MIN_LITERT_TOKENS, CAMPUS_MODEL_MAX_TOKENS)
     if (isReady && activeModelPath == modelPath && activeMaxTokens == maxTokens && engine != null) return Result.success(Unit)
 
     return withContext(Dispatchers.IO) {

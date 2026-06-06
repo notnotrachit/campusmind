@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.modelSettingsDataStore by preferencesDataStore(name = "model_settings")
+private const val MIN_MODEL_TOKENS = 1
 
 class ModelSettingsStore(private val context: Context) {
   private val modelPathKey = stringPreferencesKey("model_path")
@@ -43,7 +44,7 @@ class ModelSettingsStore(private val context: Context) {
         commitHash = CAMPUS_MODEL_COMMIT,
         sizeInBytes = CAMPUS_MODEL_SIZE_BYTES,
         backend = preferences[backendKey] ?: "CPU",
-        maxTokens = (preferences[maxTokensKey] ?: CAMPUS_MODEL_MAX_TOKENS).coerceIn(64, CAMPUS_MODEL_MAX_TOKENS),
+        maxTokens = (preferences[maxTokensKey] ?: CAMPUS_MODEL_MAX_TOKENS).coerceIn(MIN_MODEL_TOKENS, CAMPUS_MODEL_MAX_TOKENS),
         temperature = (preferences[temperatureKey] ?: 0.4f).coerceIn(0f, 1f),
         topK = (preferences[topKKey] ?: 40).coerceIn(1, 40),
         topP = preferences[topPKey] ?: 0.95f,
@@ -59,7 +60,7 @@ class ModelSettingsStore(private val context: Context) {
       preferences[commitHashKey] = config.commitHash
       preferences[sizeInBytesKey] = config.sizeInBytes
       preferences[backendKey] = config.backend
-      preferences[maxTokensKey] = config.maxTokens.coerceIn(64, CAMPUS_MODEL_MAX_TOKENS)
+      preferences[maxTokensKey] = config.maxTokens.coerceIn(MIN_MODEL_TOKENS, CAMPUS_MODEL_MAX_TOKENS)
       preferences[temperatureKey] = config.temperature.coerceIn(0f, 1f)
       preferences[topKKey] = config.topK.coerceIn(1, 40)
       preferences[topPKey] = config.topP.coerceIn(0f, 1f)
