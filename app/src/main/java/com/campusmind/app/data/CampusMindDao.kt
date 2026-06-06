@@ -40,4 +40,7 @@ interface CampusMindDao {
 
   @Query("SELECT * FROM activity_logs ORDER BY createdAtMillis DESC LIMIT 30")
   fun observeLogs(): Flow<List<ActivityLogEntity>>
+
+  @Query("DELETE FROM tasks WHERE id = :taskId")
+  suspend fun deleteTask(taskId: Long)
 }

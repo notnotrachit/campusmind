@@ -131,6 +131,13 @@ class CampusMindViewModel(
       )
     }
   }
+
+  fun deleteTask(taskId: Long) {
+    viewModelScope.launch {
+      repository.deleteTask(taskId)
+      transient.value = transient.value.copy(status = "Deadline deleted")
+    }
+  }
 }
 
 class CampusMindViewModelFactory(

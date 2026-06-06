@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DataObject
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.History
@@ -168,6 +169,7 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
       Tab.Deadlines -> DeadlinesScreen(
         modifier = contentModifier,
         tasks = state.tasks,
+        onDeleteTask = viewModel::deleteTask,
         onJumpToInbox = { selectedTab = Tab.Inbox },
       )
       Tab.Study -> StudyScreen(
@@ -262,6 +264,7 @@ private fun InboxScreen(
 private fun DeadlinesScreen(
   modifier: Modifier,
   tasks: List<TaskItem>,
+  onDeleteTask: (Long) -> Unit,
   onJumpToInbox: () -> Unit,
 ) {
   val openCount = tasks.count { !it.done }
@@ -290,6 +293,7 @@ private fun DeadlinesScreen(
         tasksByDate = tasksByDate,
         onPreviousMonth = { visibleMonth = visibleMonth.minusMonths(1) },
         onNextMonth = { visibleMonth = visibleMonth.plusMonths(1) },
+        onDeleteTask = onDeleteTask,
       )
     }
     if (tasks.isEmpty()) {
@@ -395,6 +399,7 @@ private fun MonthlyDeadlineCalendar(
   tasksByDate: Map<LocalDate?, List<DeadlineCalendarEntry>>,
   onPreviousMonth: () -> Unit,
   onNextMonth: () -> Unit,
+  onDeleteTask: (Long) -> Unit,
 ) {
   var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
@@ -443,6 +448,7 @@ private fun MonthlyDeadlineCalendar(
     DeadlineDayDialog(
       date = date,
       tasks = tasksByDate[date].orEmpty().map { it.task },
+      onDeleteTask = onDeleteTask,
       onDismiss = { selectedDate = null },
     )
   }
@@ -452,6 +458,7 @@ private fun MonthlyDeadlineCalendar(
 private fun DeadlineDayDialog(
   date: LocalDate,
   tasks: List<TaskItem>,
+  onDeleteTask: (Long) -> Unit,
   onDismiss: () -> Unit,
 ) {
   AlertDialog(
@@ -484,11 +491,13 @@ private fun DeadlineDayDialog(
                 tint = if (task.done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),
               )
-              Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                   task.title,
                   style = MaterialTheme.typography.bodyMedium,
                   fontWeight = FontWeight.SemiBold,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis,
                 )
                 if (task.source.isNotBlank()) {
                   Text(
@@ -499,6 +508,19 @@ private fun DeadlineDayDialog(
                     overflow = TextOverflow.Ellipsis,
                   )
                 }
+              }
+              IconButton(
+                onClick = {
+                  onDeleteTask(task.id)
+                  onDismiss()
+                },
+                modifier = Modifier.size(36.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Delete,
+                  contentDescription = "Delete deadline",
+                  tint = MaterialTheme.colorScheme.error,
+                )
               }
             }
           }

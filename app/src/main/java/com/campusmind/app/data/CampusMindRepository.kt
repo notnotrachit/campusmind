@@ -71,6 +71,11 @@ class CampusMindRepository(
     return result
   }
 
+  suspend fun deleteTask(taskId: Long) {
+    dao.deleteTask(taskId)
+    dao.insertLog(ActivityLog(message = "Deleted deadline").toEntity())
+  }
+
   private suspend fun persist(result: AgentResult) {
     if (result.tasks.isNotEmpty()) dao.insertTasks(result.tasks.map { it.toEntity() })
     if (result.flashcards.isNotEmpty()) dao.insertFlashcards(result.flashcards.map { it.toEntity() })
