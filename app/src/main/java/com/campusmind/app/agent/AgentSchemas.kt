@@ -9,7 +9,7 @@ import com.campusmind.app.ai.StructuredSchema
 object AgentSchemas {
   val deadline = StructuredSchema(
     toolName = "save_deadlines",
-    systemInstruction = "You extract student deadlines. Always call save_deadlines with at least one task.",
+    systemInstruction = "You extract student deadlines. Always call save_deadlines with at least one task. Return dueDateText as an absolute ISO date in yyyy-MM-dd format.",
     toolDescriptionJson = """
       {
         "name": "save_deadlines",
@@ -25,7 +25,7 @@ object AgentSchemas {
                 "type": "object",
                 "properties": {
                   "title": { "type": "string", "description": "Short, specific name of the work to do." },
-                  "dueDateText": { "type": "string", "description": "When it is due, e.g. tomorrow, Friday, 15 March. Use 'this week' if none is stated." }
+                  "dueDateText": { "type": "string", "description": "Absolute due date in yyyy-MM-dd format. Resolve relative dates using the current date/time in the prompt." }
                 },
                 "required": ["title", "dueDateText"]
               }
@@ -105,6 +105,7 @@ object AgentSchemas {
       Mark important true only when the notification contains a deadline, class/exam/project action,
       study material worth revising, academic admin work, or student spending. Ignore ads, social likes,
       generic app status, OTPs, and casual messages unless they include student work.
+      Return every task dueDateText as an absolute ISO date in yyyy-MM-dd format.
     """.trimIndent(),
     toolDescriptionJson = """
       {
@@ -123,7 +124,7 @@ object AgentSchemas {
                 "type": "object",
                 "properties": {
                   "title": { "type": "string", "description": "Short, specific action title." },
-                  "dueDateText": { "type": "string", "description": "Due date text. Use 'this week' only if important but no date is stated." }
+                  "dueDateText": { "type": "string", "description": "Absolute due date in yyyy-MM-dd format. Resolve relative dates using the current date/time in the prompt. Use a reasonable yyyy-MM-dd estimate only if important but no date is stated." }
                 },
                 "required": ["title", "dueDateText"]
               }

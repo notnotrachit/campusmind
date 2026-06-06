@@ -37,7 +37,7 @@ object AgentJsonParser {
         if (rawTitle == null && rawDue == null) return@mapNotNull null
         TaskItem(
           title = rawTitle ?: titleFromSource(sourceText),
-          dueDateText = DueDateResolver.resolveText(rawDue, fallbackText = sourceText),
+          dueDateText = rawDue ?: DueDateResolver.resolveText(null, fallbackText = sourceText),
           source = sourceText.take(140),
         )
       },

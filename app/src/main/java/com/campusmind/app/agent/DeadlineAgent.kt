@@ -27,9 +27,10 @@ class DeadlineAgent(
   private fun deadlinePrompt(inputText: String): String =
     """
     Extract the deadline from this note. Always produce one task with a clear, specific title.
-    Put any due date in dueDateText (e.g. "tomorrow", "Friday", "15 March"); if none is stated, use "this week".
+    Put any due date in dueDateText as an absolute yyyy-MM-dd date.
     Current date/time for resolving relative due dates: ${currentDateTimeContext()}.
-    Convert relative dates like "tomorrow", "next Friday", or "ten days from now" into absolute dueDateText values.
+    Convert relative dates like "tomorrow", "next Friday", "10th June", or "ten days from now"
+    into absolute dueDateText values in yyyy-MM-dd format.
     $inputText
     """.trimIndent()
 

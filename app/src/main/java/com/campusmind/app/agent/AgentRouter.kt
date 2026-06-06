@@ -53,7 +53,8 @@ class AgentRouter(
     Create expenses for payments or receipts. If it is not useful for student productivity, set important=false
     and return empty tasks, flashcards, and expenses.
     Current date/time for resolving relative due dates: ${currentDateTimeContext()}.
-    Convert relative dates like "tomorrow", "next Friday", or "ten days from now" into absolute dueDateText values.
+    Convert relative dates like "tomorrow", "next Friday", "10th June", or "ten days from now"
+    into absolute dueDateText values in yyyy-MM-dd format.
 
     Notification:
     $inputText
