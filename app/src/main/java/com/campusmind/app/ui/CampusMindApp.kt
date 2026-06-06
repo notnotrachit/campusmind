@@ -265,29 +265,27 @@ private fun DeadlinesScreen(
         body = "$openCount open · ${tasks.size} total student deadlines",
       )
     }
+    item {
+      MonthlyDeadlineCalendar(
+        visibleMonth = visibleMonth,
+        today = today,
+        tasksByDate = tasksByDate,
+        onPreviousMonth = { visibleMonth = visibleMonth.minusMonths(1) },
+        onNextMonth = { visibleMonth = visibleMonth.plusMonths(1) },
+      )
+    }
     if (tasks.isEmpty()) {
       item {
         EmptyState(
           title = "No deadlines yet",
-          body = "Paste an assignment brief, exam notice, or project reminder and every detected deadline will appear here.",
+          body = "Paste an assignment brief, exam notice, or project reminder and every detected deadline will appear on the calendar.",
           action = "Add deadline text",
           onAction = onJumpToInbox,
         )
       }
-    } else {
-      item {
-        MonthlyDeadlineCalendar(
-          visibleMonth = visibleMonth,
-          today = today,
-          tasksByDate = tasksByDate,
-          onPreviousMonth = { visibleMonth = visibleMonth.minusMonths(1) },
-          onNextMonth = { visibleMonth = visibleMonth.plusMonths(1) },
-        )
-      }
-      if (unscheduledTasks.isNotEmpty()) {
-        item { SectionTitle("Needs Date", unscheduledTasks.size, Icons.Rounded.Event) }
-        items(unscheduledTasks) { task -> DeadlineCard(task) }
-      }
+    } else if (unscheduledTasks.isNotEmpty()) {
+      item { SectionTitle("Needs Date", unscheduledTasks.size, Icons.Rounded.Event) }
+      items(unscheduledTasks) { task -> DeadlineCard(task) }
     }
   }
 }
@@ -590,12 +588,11 @@ private fun CalendarTaskCount(count: Int) {
     shape = RoundedCornerShape(6.dp),
   ) {
     Text(
-      text = "$count task${if (count == 1) "" else "s"}",
+      text = count.toString(),
       style = MaterialTheme.typography.labelSmall,
       fontWeight = FontWeight.Bold,
       maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
+      modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
     )
   }
 }

@@ -7,8 +7,11 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.campusmind.app.R
 
 private val CampusColors = lightColorScheme(
   primary = Color(0xFF1E5F55),
@@ -33,14 +36,31 @@ private val CampusShapes = Shapes(
   extraLarge = RoundedCornerShape(8.dp),
 )
 
+private val Poppins = FontFamily(
+  Font(R.font.poppins_regular, FontWeight.Normal),
+  Font(R.font.poppins_medium, FontWeight.Medium),
+  Font(R.font.poppins_semibold, FontWeight.SemiBold),
+  Font(R.font.poppins_bold, FontWeight.Bold),
+)
+
+// Apply Poppins uniformly across every text style so all screens share one font.
 private val CampusTypography = Typography().run {
   copy(
-    displayLarge = displayLarge.copy(fontFamily = FontFamily.Serif),
-    displayMedium = displayMedium.copy(fontFamily = FontFamily.Serif),
-    displaySmall = displaySmall.copy(fontFamily = FontFamily.Serif),
-    headlineLarge = headlineLarge.copy(fontFamily = FontFamily.Serif),
-    headlineMedium = headlineMedium.copy(fontFamily = FontFamily.Serif),
-    headlineSmall = headlineSmall.copy(fontFamily = FontFamily.Serif),
+    displayLarge = displayLarge.copy(fontFamily = Poppins),
+    displayMedium = displayMedium.copy(fontFamily = Poppins),
+    displaySmall = displaySmall.copy(fontFamily = Poppins),
+    headlineLarge = headlineLarge.copy(fontFamily = Poppins),
+    headlineMedium = headlineMedium.copy(fontFamily = Poppins),
+    headlineSmall = headlineSmall.copy(fontFamily = Poppins),
+    titleLarge = titleLarge.copy(fontFamily = Poppins),
+    titleMedium = titleMedium.copy(fontFamily = Poppins),
+    titleSmall = titleSmall.copy(fontFamily = Poppins),
+    bodyLarge = bodyLarge.copy(fontFamily = Poppins),
+    bodyMedium = bodyMedium.copy(fontFamily = Poppins),
+    bodySmall = bodySmall.copy(fontFamily = Poppins),
+    labelLarge = labelLarge.copy(fontFamily = Poppins),
+    labelMedium = labelMedium.copy(fontFamily = Poppins),
+    labelSmall = labelSmall.copy(fontFamily = Poppins),
   )
 }
 
