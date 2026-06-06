@@ -1,5 +1,14 @@
 package com.campusmind.app.ui
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +41,8 @@ import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
@@ -57,18 +68,22 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.campusmind.app.ai.ModelDownloadState
 import com.campusmind.app.model.ActivityLog
 import com.campusmind.app.model.ExpenseItem
@@ -838,6 +853,99 @@ private fun InputPanel(
   onInputChange: (String) -> Unit,
   onSubmit: () -> Unit,
 ) {
+  val context = LocalContext.current
+  val latestInputText by rememberUpdatedState(inputText)
+  val latestOnInputChange by rememberUpdatedState(onInputChange)
+  var isListening by remember { mutableStateOf(false) }
+  var audioStatus by remember { mutableStateOf("Tap the mic to dictate a mock notification") }
+  val speechRecognizer = remember {
+    if (SpeechRecognizer.isRecognitionAvailable(context)) {
+      SpeechRecognizer.createSpeechRecognizer(context)
+    } else {
+      null
+    }
+  }
+  val speechIntent = remember {
+    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+      putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+      putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+      putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak a campus notification")
+    }
+  }
+  fun startListening() {
+    if (speechRecognizer == null) {
+      audioStatus = "Speech recognition is not available on this device"
+      return
+    }
+    isListening = true
+    audioStatus = "Listening..."
+    speechRecognizer.startListening(speechIntent)
+  }
+  val microphonePermission = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestPermission(),
+  ) { granted ->
+    if (granted) {
+      startListening()
+    } else {
+      audioStatus = "Microphone permission denied"
+    }
+  }
+
+  DisposableEffect(speechRecognizer) {
+    speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+      override fun onReadyForSpeech(params: Bundle?) {
+        audioStatus = "Listening..."
+      }
+
+      override fun onBeginningOfSpeech() {
+        audioStatus = "Recording voice input"
+      }
+
+      override fun onRmsChanged(rmsdB: Float) = Unit
+      override fun onBufferReceived(buffer: ByteArray?) = Unit
+
+      override fun onEndOfSpeech() {
+        isListening = false
+        audioStatus = "Processing voice..."
+      }
+
+      override fun onError(error: Int) {
+        isListening = false
+        audioStatus = speechErrorText(error)
+      }
+
+      override fun onResults(results: Bundle?) {
+        isListening = false
+        val transcript = results
+          ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+          ?.firstOrNull()
+          ?.trim()
+          .orEmpty()
+        if (transcript.isBlank()) {
+          audioStatus = "No speech captured"
+        } else {
+          val prefix = if (latestInputText.isBlank()) "" else "\n"
+          latestOnInputChange("$latestInputText${prefix}Voice: $transcript")
+          audioStatus = "Voice added to mock notification"
+        }
+      }
+
+      override fun onPartialResults(partialResults: Bundle?) {
+        val partial = partialResults
+          ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+          ?.firstOrNull()
+          ?.trim()
+        if (!partial.isNullOrBlank()) audioStatus = partial
+      }
+
+      override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    })
+
+    onDispose {
+      speechRecognizer?.destroy()
+    }
+  }
+
   Card(
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     shape = RoundedCornerShape(8.dp),
@@ -857,6 +965,33 @@ private fun InputPanel(
         modifier = Modifier.fillMaxWidth().height(190.dp),
         label = { Text("Notification-like text") },
         placeholder = { Text("Title: DBMS assignment\nText: Submit ER diagram by Friday...") },
+        trailingIcon = {
+          IconButton(
+            onClick = {
+              if (isListening) {
+                speechRecognizer?.stopListening()
+                isListening = false
+                audioStatus = "Stopped listening"
+              } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                startListening()
+              } else {
+                microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+              }
+            },
+          ) {
+            Icon(
+              imageVector = if (isListening) Icons.Rounded.MicOff else Icons.Rounded.Mic,
+              contentDescription = if (isListening) "Stop voice input" else "Start voice input",
+            )
+          }
+        },
+      )
+      Text(
+        text = audioStatus,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
       )
       Button(
         onClick = onSubmit,
@@ -873,6 +1008,20 @@ private fun InputPanel(
     }
   }
 }
+
+private fun speechErrorText(error: Int): String =
+  when (error) {
+    SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+    SpeechRecognizer.ERROR_CLIENT -> "Voice input stopped"
+    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required"
+    SpeechRecognizer.ERROR_NETWORK -> "Network error during speech recognition"
+    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Speech recognition timed out"
+    SpeechRecognizer.ERROR_NO_MATCH -> "No speech match found"
+    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Speech recognizer is busy"
+    SpeechRecognizer.ERROR_SERVER -> "Speech service error"
+    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech heard"
+    else -> "Voice input failed"
+  }
 
 @Composable
 private fun StatTile(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
