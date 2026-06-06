@@ -11,11 +11,11 @@ CampusMind is a phone-first student productivity assistant for the AgentKit spri
 
 ## Download
 
-**[⬇️ Download CampusMind.apk](release/CampusMind.apk?raw=true)** (arm64, ~41 MB)
+**[⬇️ Download the latest APK](https://github.com/notnotrachit/campusmind/releases/latest/download/CampusMind.apk)** (arm64, ~41 MB) · [all releases](https://github.com/notnotrachit/campusmind/releases)
 
 To install on an Android phone:
 
-1. Download `release/CampusMind.apk` (tap the link above, then **Download**).
+1. Download `CampusMind.apk` (tap the link above).
 2. Open the file. Android will ask to allow installs from this source — tap **Settings → Allow from this source**, then go back and **Install**.
 3. Launch CampusMind, open **AI Runtime** (gear icon, top-right) and download the `Gemma-4-E2B-it` model once. Everything then runs offline.
 
