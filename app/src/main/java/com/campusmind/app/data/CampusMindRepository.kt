@@ -31,6 +31,23 @@ class CampusMindRepository(
     return result
   }
 
+  suspend fun submitMockNotification(content: String): AgentResult {
+    val item = InboxItem(type = InboxType.Notification, content = content.trim())
+    dao.insertInbox(item.toEntity())
+    val result = router.routeNotification(item.content)
+    persist(result)
+    dao.insertLog(
+      ActivityLog(
+        message = if (result.hasSavedItems()) {
+          "Mock notification saved ${result.savedItemLabel()} with ${result.modelStatusText}"
+        } else {
+          "Mock notification skipped non-actionable input with ${result.modelStatusText}"
+        },
+      ).toEntity(),
+    )
+    return result
+  }
+
   suspend fun submitNotification(notificationKey: String, content: String): AgentResult? {
     val trimmed = content.trim()
     if (trimmed.isBlank()) return null

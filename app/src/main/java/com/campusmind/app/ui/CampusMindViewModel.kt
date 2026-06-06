@@ -83,8 +83,8 @@ class CampusMindViewModel(
     }
 
     viewModelScope.launch {
-      transient.value = transient.value.copy(isProcessing = true, status = "Routing local agent...")
-      runCatching { repository.submitText(content) }
+      transient.value = transient.value.copy(isProcessing = true, status = "Classifying mock notification...")
+      runCatching { repository.submitMockNotification(content) }
         .onSuccess { result ->
           transient.value = transient.value.copy(
             inputText = "",

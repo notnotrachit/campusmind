@@ -1,7 +1,5 @@
 package com.campusmind.app.ui
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +66,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -200,7 +197,6 @@ private fun InboxScreen(
   onSubmit: () -> Unit,
   onJumpToDeadlines: () -> Unit,
 ) {
-  val context = LocalContext.current
   LazyColumn(
     modifier = modifier.fillMaxSize().padding(16.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -208,7 +204,7 @@ private fun InboxScreen(
     item {
       HeroPanel(
         title = "Notification deadline agent",
-        body = "CampusMind reads phone notifications locally, classifies what matters for a student, and saves deadlines, flashcards, and expenses as structured items.",
+        body = "Mock notification payloads are classified locally into deadlines, flashcards, expenses, or ignored items with structured output.",
         trailing = {
           IconBadge(icon = Icons.Rounded.NotificationsActive, tint = MaterialTheme.colorScheme.primary)
         },
@@ -220,13 +216,6 @@ private fun InboxScreen(
         StatTile("Deadlines", deadlineCount.toString(), Icons.Rounded.Event, Modifier.weight(1f))
         StatTile("Cards", flashcardCount.toString(), Icons.Rounded.Style, Modifier.weight(1f))
       }
-    }
-    item {
-      NotificationAccessPanel(
-        onOpenSettings = {
-          context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        },
-      )
     }
     item {
       InputPanel(
@@ -249,36 +238,6 @@ private fun InboxScreen(
     item {
       TextButton(onClick = onJumpToDeadlines, modifier = Modifier.fillMaxWidth()) {
         Text("Open deadline view")
-      }
-    }
-  }
-}
-
-@Composable
-private fun NotificationAccessPanel(
-  onOpenSettings: () -> Unit,
-) {
-  Card(
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    shape = RoundedCornerShape(8.dp),
-    modifier = Modifier.fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        IconBadge(icon = Icons.Rounded.NotificationsActive, tint = MaterialTheme.colorScheme.primary)
-        Column(Modifier.weight(1f)) {
-          Text("Notification access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-          Text(
-            "Enable CampusMind so every new notification is classified into deadline, flashcard, expense, or ignored.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-      }
-      Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Rounded.Settings, contentDescription = null)
-        Spacer(Modifier.size(8.dp))
-        Text("Enable notification agent")
       }
     }
   }
