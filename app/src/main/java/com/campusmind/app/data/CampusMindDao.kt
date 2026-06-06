@@ -23,6 +23,9 @@ interface CampusMindDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertLog(item: ActivityLogEntity)
 
+  @Insert(onConflict = OnConflictStrategy.IGNORE)
+  suspend fun insertProcessedNotification(item: ProcessedNotificationEntity): Long
+
   @Query("SELECT * FROM inbox_items ORDER BY createdAtMillis DESC LIMIT 20")
   fun observeInbox(): Flow<List<InboxEntity>>
 

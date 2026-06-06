@@ -5,12 +5,14 @@ enum class InboxType {
   Image,
   File,
   Voice,
+  Notification,
 }
 
 enum class AgentKind {
   Study,
   Deadline,
   Expense,
+  Notification,
 }
 
 data class InboxItem(

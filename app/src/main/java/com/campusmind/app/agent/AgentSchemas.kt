@@ -97,4 +97,66 @@ object AgentSchemas {
       }
     """.trimIndent(),
   )
+
+  val notification = StructuredSchema(
+    toolName = "classify_student_notification",
+    systemInstruction = """
+      You classify phone notifications for a student. Always call classify_student_notification.
+      Mark important true only when the notification contains a deadline, class/exam/project action,
+      study material worth revising, academic admin work, or student spending. Ignore ads, social likes,
+      generic app status, OTPs, and casual messages unless they include student work.
+    """.trimIndent(),
+    toolDescriptionJson = """
+      {
+        "name": "classify_student_notification",
+        "description": "Classify a phone notification and save all student-actionable items.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "important": { "type": "boolean", "description": "Whether this notification matters for student productivity." },
+            "category": { "type": "string", "enum": ["deadline", "flashcard", "expense", "mixed", "ignore"] },
+            "summary": { "type": "string", "description": "One short sentence explaining the classification." },
+            "tasks": {
+              "type": "array",
+              "description": "Deadlines, reminders, exams, submissions, applications, or actions to track.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "description": "Short, specific action title." },
+                  "dueDateText": { "type": "string", "description": "Due date text. Use 'this week' only if important but no date is stated." }
+                },
+                "required": ["title", "dueDateText"]
+              }
+            },
+            "flashcards": {
+              "type": "array",
+              "description": "Study facts or concepts worth revising.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "front": { "type": "string", "description": "Question for revision." },
+                  "back": { "type": "string", "description": "Answer for revision." }
+                },
+                "required": ["front", "back"]
+              }
+            },
+            "expenses": {
+              "type": "array",
+              "description": "Student spending found in payment or receipt notifications.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "amountText": { "type": "string", "description": "Amount with currency." },
+                  "category": { "type": "string", "enum": ["Food", "Travel", "Academics", "Student spend"] },
+                  "merchant": { "type": "string", "description": "Merchant or recipient." }
+                },
+                "required": ["amountText", "category", "merchant"]
+              }
+            }
+          },
+          "required": ["important", "category", "summary", "tasks", "flashcards", "expenses"]
+        }
+      }
+    """.trimIndent(),
+  )
 }

@@ -1,5 +1,7 @@
 package com.campusmind.app.ui
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Style
@@ -65,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,6 +145,7 @@ fun CampusMindApp(viewModel: CampusMindViewModel) {
         modifier = contentModifier,
         inputText = state.inputText,
         isProcessing = state.isProcessing,
+        notificationCount = state.inboxCount,
         deadlineCount = state.tasks.size,
         flashcardCount = state.flashcards.size,
         expenseCount = state.expenses.size,
@@ -187,6 +192,7 @@ private fun InboxScreen(
   modifier: Modifier,
   inputText: String,
   isProcessing: Boolean,
+  notificationCount: Int,
   deadlineCount: Int,
   flashcardCount: Int,
   expenseCount: Int,
@@ -194,25 +200,33 @@ private fun InboxScreen(
   onSubmit: () -> Unit,
   onJumpToDeadlines: () -> Unit,
 ) {
+  val context = LocalContext.current
   LazyColumn(
     modifier = modifier.fillMaxSize().padding(16.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp),
   ) {
     item {
       HeroPanel(
-        title = "Turn campus chaos into next actions.",
-        body = "Paste a notice, receipt, assignment brief, or lecture note. The local agent sorts it into deadlines, flashcards, and expenses on this device.",
+        title = "Notification deadline agent",
+        body = "CampusMind reads phone notifications locally, classifies what matters for a student, and saves deadlines, flashcards, and expenses as structured items.",
         trailing = {
-          IconBadge(icon = Icons.Rounded.Bolt, tint = MaterialTheme.colorScheme.primary)
+          IconBadge(icon = Icons.Rounded.NotificationsActive, tint = MaterialTheme.colorScheme.primary)
         },
       )
     }
     item {
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        StatTile("Seen", notificationCount.toString(), Icons.Rounded.NotificationsActive, Modifier.weight(1f))
         StatTile("Deadlines", deadlineCount.toString(), Icons.Rounded.Event, Modifier.weight(1f))
         StatTile("Cards", flashcardCount.toString(), Icons.Rounded.Style, Modifier.weight(1f))
-        StatTile("Spend", expenseCount.toString(), Icons.AutoMirrored.Rounded.ReceiptLong, Modifier.weight(1f))
       }
+    }
+    item {
+      NotificationAccessPanel(
+        onOpenSettings = {
+          context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        },
+      )
     }
     item {
       InputPanel(
@@ -227,14 +241,44 @@ private fun InboxScreen(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        FilterChip(selected = true, onClick = {}, label = { Text("Text") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) })
-        FilterChip(selected = false, onClick = {}, label = { Text("Camera soon") })
-        FilterChip(selected = false, onClick = {}, label = { Text("Voice soon") })
+        FilterChip(selected = true, onClick = {}, label = { Text("Notifications") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) })
+        FilterChip(selected = false, onClick = {}, label = { Text("Manual test") })
+        FilterChip(selected = false, onClick = {}, label = { Text("Spend $expenseCount") })
       }
     }
     item {
       TextButton(onClick = onJumpToDeadlines, modifier = Modifier.fillMaxWidth()) {
         Text("Open deadline view")
+      }
+    }
+  }
+}
+
+@Composable
+private fun NotificationAccessPanel(
+  onOpenSettings: () -> Unit,
+) {
+  Card(
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    shape = RoundedCornerShape(8.dp),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        IconBadge(icon = Icons.Rounded.NotificationsActive, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
+          Text("Notification access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+          Text(
+            "Enable CampusMind so every new notification is classified into deadline, flashcard, expense, or ignored.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+      Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Rounded.Settings, contentDescription = null)
+        Spacer(Modifier.size(8.dp))
+        Text("Enable notification agent")
       }
     }
   }
@@ -845,15 +889,15 @@ private fun InputPanel(
         IconBadge(icon = Icons.Rounded.Inbox, tint = MaterialTheme.colorScheme.tertiary)
         Column {
           Text("Chaos Inbox", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-          Text("Paste raw campus text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Text("Manual classifier test", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
       OutlinedTextField(
         value = inputText,
         onValueChange = onInputChange,
         modifier = Modifier.fillMaxWidth().height(190.dp),
-        label = { Text("Student input") },
-        placeholder = { Text("Submit DBMS assignment by Friday, split mess bill, revise OS paging...") },
+        label = { Text("Notification-like text") },
+        placeholder = { Text("Title: DBMS assignment\nText: Submit ER diagram by Friday...") },
       )
       Button(
         onClick = onSubmit,

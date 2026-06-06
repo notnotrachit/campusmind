@@ -50,6 +50,12 @@ data class ActivityLogEntity(
   val createdAtMillis: Long,
 )
 
+@Entity(tableName = "processed_notifications")
+data class ProcessedNotificationEntity(
+  @PrimaryKey val notificationKey: String,
+  val processedAtMillis: Long = System.currentTimeMillis(),
+)
+
 fun InboxEntity.toDomain() =
   InboxItem(
     id = id,

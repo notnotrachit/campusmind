@@ -26,6 +26,7 @@ data class CampusMindUiState(
   val flashcards: List<Flashcard> = emptyList(),
   val expenses: List<ExpenseItem> = emptyList(),
   val logs: List<ActivityLog> = emptyList(),
+  val inboxCount: Int = 0,
   val modelConfig: ModelConfig = ModelConfig(),
   val modelDownloadState: ModelDownloadState = ModelDownloadState(),
 )
@@ -40,19 +41,22 @@ class CampusMindViewModel(
   val uiState: StateFlow<CampusMindUiState> =
     combine(
       combine(
-        transient,
-        repository.tasks,
-        repository.flashcards,
-        repository.expenses,
-        repository.logs,
-      ) { current, tasks, flashcards, expenses, logs ->
-        current.copy(
-          tasks = tasks,
-          flashcards = flashcards,
-          expenses = expenses,
-          logs = logs,
-        )
-      },
+        combine(
+          transient,
+          repository.tasks,
+          repository.flashcards,
+          repository.expenses,
+          repository.logs,
+        ) { current, tasks, flashcards, expenses, logs ->
+          current.copy(
+            tasks = tasks,
+            flashcards = flashcards,
+            expenses = expenses,
+            logs = logs,
+          )
+        },
+        repository.inbox,
+      ) { current, inbox -> current.copy(inboxCount = inbox.size) },
       modelSettingsStore.config,
       modelDownloadManager.state,
     ) { current, modelConfig, modelDownloadState ->
